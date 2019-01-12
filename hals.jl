@@ -1,7 +1,15 @@
+module HALSUpdate
+
+
+# Imports
 using LinearAlgebra
 include("./common.jl")
 
-function update_hals(data, W, H, meta)
+
+"""
+Main update rule
+"""
+function update(data, W, H, meta)
     if (meta == nothing)
         meta = _initialize_meta(data, W, H)
     end
@@ -11,7 +19,7 @@ function update_hals(data, W, H, meta)
     _update_W(W, meta.H_unfold, meta.H_norms, meta.resids)
 
     
-    return norm(resids) / data_norm, meta
+    return norm(meta.resids) / meta.data_norm, meta
 end
 
 
@@ -30,13 +38,25 @@ mutable struct HALSMeta
 end
 
 
-function _intialize_meta(data, W, H)
+function _initialize_meta(data, W, H)
+    L, N, K = size(W)
+    T = size(H)[2]
+    
     resids = tensor_conv(W, H) - data
     data_norm = norm(data)
 
     # Set up batches
     batch_inds = []
     batch_sizes = []
+    for k = 1:K
+        push!(batch_sizes, [])
+        push!(batch_inds, [])
+        for l = 1:L
+            batch = range(l, stop=T-L, step=L)
+            push!(batch_inds[k], batch)
+            push!(batch_sizes[k], length(batch))
+        end
+    end
     
     return HALSMeta(resids, data_norm, batch_inds, batch_sizes,  # Internals
                     nothing, nothing)  # W setup
@@ -83,4 +103,7 @@ end
 function _next_W_col(Hkl, norm_Hkl, resid)
     return max.((-resid * Hkl) ./ (norm_Hkl^2 + EPSILON), 0.0)
 end
+
+
+end  # module
 ;

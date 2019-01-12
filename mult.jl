@@ -1,6 +1,11 @@
+module MultUpdate
+
+
+# Imports
 include("./common.jl")
 
-function update_mult(data, W, H, meta)
+
+function update(data, W, H, meta)
     if (meta == nothing)
         meta = _initialize_meta(data, W, H)
     end
@@ -53,8 +58,12 @@ function _compute_mult_W(data, W, H)
     return num, denom
 end
 
+
 function _compute_mult_H(data, W, H)
     est = tensor_conv(W, H)
     return tensor_transconv(W, data), tensor_transconv(W, est)
 end
+
+
+end  # module
 ;
