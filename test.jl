@@ -3,10 +3,21 @@ using Plots
 include("model.jl")
 include("datasets.jl")
 
-data = gen_synthetic(N=90, T=1000)
+data = gen_synthetic(N=500, T=2000)
 
-W, H, time_hist, loss_hist = fit_cnmf(data, L=10, K=5)
+plot(xlabel="Time", ylabel="Loss")
 
-plot(time_hist, loss_hist, xlabel="Time", ylabel="Loss")
+for trial in [
+    #["hals", Dict(), "HALS"],
+    ["mult", Dict(), "MULT"],
+    ["hals", Dict("mode" => "elementwise"), "EW-HALS"]
+]
+    W, H, time_hist, loss_hist = fit_cnmf(data, L=10, K=5,
+                                          alg=trial[1], alg_options=trial[2],
+                                          max_itr=1000, max_time=30)
+    plot!(time_hist, loss_hist, label=trial[3])
+    scatter!(time_hist, loss_hist, markersize=1, label="")
+end
+    
 gui()
 ;

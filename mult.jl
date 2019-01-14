@@ -1,11 +1,11 @@
-module MultUpdate
+module MULT
 
 
 # Imports
 include("./common.jl")
 
 
-function update(data, W, H, meta)
+function update(data, W, H, meta, options)
     if (meta == nothing)
         meta = _initialize_meta(data, W, H)
     end

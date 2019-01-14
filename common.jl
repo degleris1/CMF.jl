@@ -1,6 +1,6 @@
 using LinearAlgebra
 
-EPSILON = 1e-6
+EPSILON = eps()
 
 
 function compute_loss(data, W, H)
@@ -60,4 +60,17 @@ function shift_cols(X, lag)
         return X[:, 1:T-lag]
     end
 end
+
+
+function shift_and_stack(H, L)
+    K, T = size(H)
+
+    H_stacked = zeros(L*K, T)
+    for lag = 0:(L-1)
+        H_stacked[1+K*lag:K*(lag+1), 1+lag:T] = shift_cols(H, lag)
+    end
+
+    return H_stacked
+end
+
 ;

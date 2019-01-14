@@ -4,12 +4,13 @@ include("./common.jl")
 
 
 ALGORITHMS = Dict(
-    "mult" => MultUpdate,
-    "hals" => HALSUpdate
+    "mult" => MULT,
+    "hals" => HALS
 )
 
 
-function fit_cnmf(data; L=7, K=3, max_itr=100, alg="mult")
+function fit_cnmf(data; L=7, K=3, alg="mult",
+                  alg_options=Dict(), max_itr=100, max_time=Inf)
     # Initialize
     W, H = init_rand(data, L, K)
     meta = nothing
@@ -19,12 +20,16 @@ function fit_cnmf(data; L=7, K=3, max_itr=100, alg="mult")
     time_hist = [0.0]
 
     # Update
-    for itr = 1:max_itr
+    itr = 1
+    tot_time = 0
+    while (itr <= max_itr) && (time_hist[end] <= max_time) 
+        itr += 1
+
         # Update with timing
         t0 = time()
-        loss, meta = ALGORITHMS[alg].update(data, W, H, meta)
+        loss, meta = ALGORITHMS[alg].update(data, W, H, meta, alg_options)
         dur = time() - t0
-
+        
         # Record time and loss
         push!(time_hist, time_hist[end] + dur)
         push!(loss_hist, loss)
