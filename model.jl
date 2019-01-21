@@ -8,6 +8,17 @@ ALGORITHMS = Dict(
     "hals" => HALS
 )
 
+struct CNMF_results
+    data::Array{Float64}
+    W::Array{Float64}
+    H::Array{Float64}
+    time_hist::Array{Float64}
+    loss_hist::Array{Float64}
+    function CNMF_results(data, W, H, time_hist, loss_hist)
+        return new(data, W, H, time_hist, loss_hist)
+    end
+end
+
 
 function fit_cnmf(data; L=7, K=3, alg="mult",
                   alg_options=Dict(), max_itr=100, max_time=Inf)
@@ -35,7 +46,7 @@ function fit_cnmf(data; L=7, K=3, alg="mult",
         push!(loss_hist, loss)
     end
 
-    return W, H, time_hist, loss_hist
+    return CNMF_results(data, W, H, time_hist, loss_hist)
 end
 
 
