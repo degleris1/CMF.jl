@@ -1,7 +1,7 @@
 using Plots
 
-include("model.jl")
-include("datasets.jl")
+include("../src/model.jl")
+include("../src/datasets.jl")
 
 data = gen_synthetic(N=500, T=2000)
 
