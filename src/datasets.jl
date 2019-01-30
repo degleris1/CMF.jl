@@ -1,4 +1,5 @@
 using HDF5
+using ImageFiltering
 
 function gen_synthetic(;K=3, N=100, L=20, T=50, H_sparsity=0.9, noise_scale=1.0)
     # Generate random convolutional parameters
@@ -40,7 +41,8 @@ MAZE_DATAPATH = "~/cmf_data/NoveltySessInfoMatFiles/Achilles_10252013_sessInfo.m
 function maze(;path=MAZE_DATAPATH,
                 start_time=0,
                 end_time=200,
-                bin_time=1e-1)
+                bin_time=1e-1,
+                kernel_width=nothing)
     f = h5open(path, "r") do file
         read(file, "sessInfo/Spikes")
     end
@@ -79,7 +81,13 @@ function maze(;path=MAZE_DATAPATH,
         bin = spike_times_binned[n]
         data[neuron, bin] += 1
     end
-    return data
+
+    # If kernel_width is passed, convolve each row with a gaussian kernel
+    # of the given width. The width specifies the standard deviation of the kernel.
+    if kernel_width != nothing
+        kern = KernelFactors.gaussian((0,kernel_width))
+        data = imfilter(data,kern)
+    end
 
 end
 ;
