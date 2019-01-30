@@ -20,10 +20,12 @@ function update(data, W, H, meta, options)
 
     # H update
     _setup_H_update!(W, H, meta)
-    if get(options, "mode", nothing) == "elementwise"
-        _update_H_simple!(W, H, meta.resids, meta.W_norms)
+    if get(options, "mode", nothing) == "parallel"
+        _update_H_parallel!(W, H, meta.resids,
+                   meta.batch_inds, meta.batch_sizes,
+                   meta.Wk_list, meta.W_norms)
     else  # regular
-        _update_H!(W, H, meta.resids, meta.W_norms)
+        _update_H_regular!(W, H, meta.resids, meta.Wk_list, meta.W_norms)
     end
     
     return norm(meta.resids) / meta.data_norm, meta
@@ -32,9 +34,9 @@ end
 
 
 """
-----------------------------
-Internals and Initialization
-----------------------------
+-----------------------------------
+Internals, Initialization and Setup
+-----------------------------------
 """
 
 
@@ -48,8 +50,7 @@ mutable struct HALSMeta
     H_norms
 
     W_norms  # H setup
-    W_raveled
-    W_clones
+    Wk_list
 end
 
 
@@ -66,8 +67,8 @@ function _initialize_meta!(data, W, H)
     for k = 1:K
         push!(batch_sizes, [])
         push!(batch_inds, [])
-        for l = 1:L
-            batch = range(l, stop=T-L, step=L)
+        for l = 0:(L-1)
+            batch = (l+1):L:(T-L)
             push!(batch_inds[k], batch)
             push!(batch_sizes[k], length(batch))
         end
@@ -75,9 +76,38 @@ function _initialize_meta!(data, W, H)
     
     return HALSMeta(resids, data_norm, batch_inds, batch_sizes,  # Internals
                     nothing, nothing,  # W setup
-                    nothing, nothing, nothing)  # H setup
+                    nothing, nothing)  # H setup
 end
 
+
+function _setup_W_update!(W, H, meta)
+    L, N, K = size(W)
+
+    meta.H_unfold = shift_and_stack(H, L)  # Unfold matrices
+    meta.H_norms = zeros(K*L)  # Compute norms
+    for i=1:(K*L)
+        meta.H_norms[i] = norm(meta.H_unfold[i, :])
+    end
+end
+
+
+function _setup_H_update!(W, H, meta)
+    L, N, K = size(W)
+    
+    # Set up norms
+    meta.W_norms = zeros(K, L)
+    for k = 1:K
+        for l = 1:L
+            meta.W_norms[k, l] = norm(W[l, :, k])
+        end
+    end
+                                    
+    # Slice W by k
+    meta.Wk_list = []
+    for k = 1:K
+        push!(meta.Wk_list, W[:, :, k]')
+    end                             
+end
 
 
 """
@@ -112,45 +142,44 @@ function _next_W_col(Hkl, norm_Hkl, resid)
 end
 
 
-function _setup_W_update!(W, H, meta)
-    L, N, K = size(W)
-
-    meta.H_unfold = shift_and_stack(H, L)  # Unfold matrices
-    meta.H_norms = zeros(K*L)  # Compute norms
-    for i=1:(K*L)
-        meta.H_norms[i] = norm(meta.H_unfold[i, :])
-    end
-end
-
-
 """
 --------
 H update
 --------
 """
 
-function _update_H!(W, H, resids, W_norms)
-    println("Not yet implemented!")
-end
+function _update_H_parallel!(W, H, resids, batch_inds, batch_sizes, Wk_list, W_norms)
+    L, N, K = size(W)
+    T = size(H)[2]
 
-
-function _update_H_simple!(W, H, resids, W_norms)
-    K, T = size(H)
-    
     for k = 1:K
-        for t = 1:T
-            _update_H_entry!(W, H, resids, k, t, W_norms)
+        norm_Wk = norm(W_norms[k, :])
+        for l = 0:(L-1)
+            _update_H_batch!(W, H, resids, k, l,
+                             batch_inds[k][l+1], batch_sizes[k][l+1],
+                             Wk_list[k], norm_Wk)
+            _update_H_entry!(W, H, resids, k, T-L+l+1, Wk_list[k], W_norms)
         end
     end
 end
 
 
-function _update_H_entry!(W, H, resids, k, t, W_norms)
+function _update_H_regular!(W, H, resids, Wk_list, W_norms)
+    K, T = size(H)
+    
+    for k = 1:K
+        for t = 1:T
+            _update_H_entry!(W, H, resids, k, t, Wk_list[k], W_norms)
+        end
+    end
+end
+
+
+function _update_H_entry!(W, H, resids, k, t, Wk, W_norms)
     L, N, K =size(W)
     T = size(H)[2]
 
-    # Collect cached data
-    Wk = W[:, :, k]'
+    # Compute norm
     norm_Wkt = norm(W_norms[k, 1:min(T-t+1, L)])
 
     # Remove factor from residual
@@ -170,42 +199,49 @@ function _next_H_entry(Wkt, norm_Wkt, remainder)
 end
 
 
-function _update_H_batch!()
-    return nothing
-end
-
-
-function _next_H_batch(Wk, norm_Wk, remainder)
-    traces = 0
-end
-
-
-function _setup_H_update!(W, H, meta)
+function _update_H_batch!(W, H, resids, k, l, batch_ind, n_batch, Wk, norm_Wk)
     L, N, K = size(W)
 
-    # Setup norms
-    meta.W_norms = zeros(K, L)
-    for k = 1:K
-        for l = 1:L
-            meta.W_norms[k, l] = norm(W[l, :, k])
-        end
-    end
+    # Set up batch
+    batch = H[k, batch_ind]
+    end_batch = l + L*n_batch
+    
+    # Remove factor from residual
+    _add_factor!(resids, batch, -Wk, batch_ind, n_batch, L)
 
-    # Setup raveled matrices and clones
-    W_raveled = []
-    for k = 1:K
-        push!(W_raveled, reshape(W[:, :, k], N*L))
-    end
+    # Update H
+    H[k, batch_ind] = _next_H_batch(Wk, norm_Wk, resids, batch_ind, n_batch, L)
 
-    meta.W_raveled = W_raveled
+    # Add factor back to residual
+    new_batch = H[k, batch_ind]
+    _add_factor!(resids, new_batch, Wk, batch_ind, n_batch, L)
 end
+
+
+function _next_H_batch(Wk, norm_Wk, resids, batch_ind, n_batch, L)
+    traces = zeros(n_batch)
+    for i = 1:n_batch
+        j = batch_ind[i]
+        traces[i] = reshape(Wk, length(Wk))' * reshape(resids[:, j:j+L-1], length(Wk))
+    end
+    return max.(traces / (norm_Wk ^ 2 + EPSILON), 0)
+end
+
+
+function _add_factor!(resids, batch, Wk, batch_ind, n_batch, L)
+    for i = 1:n_batch
+        j = batch_ind[i]
+        resids[:, j:j+L-1] .+= batch[i] * Wk
+    end
+end
+
 
 
 """
 Expand the factor tensor into a matrix
 """
-function _unfold_factor(factor_tens, n_batch)
-    return transpose(reshape(factor_tens, L*n_batch, n))
+function _unfold_factor(factor_tens, n_batch, L, N)
+    return transpose(reshape(factor_tens, L*n_batch, N))
 end
 
 
