@@ -83,8 +83,7 @@ def plot_result(data, W, H, tmin=0, tmax=-1, outer_pad=.05, inner_pad=.05,
     for ax, w in zip(w_ax, W.T):
         ax.imshow(w, aspect='auto')
     
-    plt.show()
-    return f
+    return fig
 """
 
 function plot_result(result_struct::CNMF_results)
