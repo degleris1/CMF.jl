@@ -73,4 +73,21 @@ function shift_and_stack(H, L)
     return H_stacked
 end
 
+"""
+Return a shift matrix of a given size and shift. 
+"""
+function shift_matrix(size, shift)
+    eye = Matrix{Float64}(I, size, size)
+    if shift >= 0
+        eye = eye[:,1:end-shift]
+        shift = [zeros(size, shift) eye]
+        return shift
+    else
+        shift = abs(shift)
+        eye = eye[:,1+shift:end]
+        shift = [eye zeros(size, shift)]
+        return shift
+    end
+end
+
 ;
