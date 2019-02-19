@@ -28,7 +28,6 @@ function update(data, W, H, meta, options)
     _update_W!(data, W, H)
 
     # H update
-    H_old = copy(H)
     _update_H!(data, W, H)
 
     meta.resids = tensor_conv(W, H) - data
