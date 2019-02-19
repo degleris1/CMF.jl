@@ -48,7 +48,7 @@ function _update_W!(data, W, H)
     """
     L,N,K = size(W)
     H_unfold = shift_and_stack(H, L)
-    W_unfold = NonNegLeastSquares.nonneg_lsq(t(H_unfold), t(data))
+    W_unfold = NonNegLeastSquares.nonneg_lsq(t(H_unfold), t(data), alg=:pivot)
     W[:,:,:] = fold_W(t(W_unfold), L, N, K)
 end
 
@@ -56,17 +56,19 @@ function _update_H!(data, W, H)
     K, T = size(H)
     L, N, K = size(W)
 
-    # Form big matrix of kronecker products.
-    # This is just a temporary solution to get this working.
-    # TODO: Change this to update a single column of H at a time.
-    A = zeros(N*T, K*T)
-    for l in 1:L
-        A = A + kron(shift_matrix(T, 1-l), W[l,:,:])
+    # Update H column-by-column
+    for t in 1:T
+        v = zeros(N,1)
+        for l = 1:L-1
+            h_idx = t-l
+            if h_idx <= 0
+                continue
+            end
+            v += W[l+1,:,:] * H[:,h_idx]
+        end
+        b = data[:,t] - v
+        H[:,t] = NonNegLeastSquares.nonneg_lsq(W[1,:,:], b, alg=:pivot)
     end
-
-    # Update H with NNLS
-    H_vec = NonNegLeastSquares.nonneg_lsq(A, vec(data))
-    H[:,:] = reshape(H_vec, size(H)...)
 end
 
 """
