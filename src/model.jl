@@ -46,9 +46,6 @@ function fit_cnmf(data; L=7, K=3, alg="mult",
         # Record time and loss
         push!(time_hist, time_hist[end] + dur)
         push!(loss_hist, loss)
-        if itr > 1
-            @assert(loss_hist[end] < loss_hist[end-1])
-        end
     end
 
     return CNMF_results(data, W, H, time_hist, loss_hist)
