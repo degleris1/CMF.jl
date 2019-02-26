@@ -14,6 +14,11 @@ include("./common.jl")
 mutable struct ANNLSmeta
     resids
     data_norm
+    function ANNLSmeta(data, W, H)
+        resids = compute_resids(data, W, H)
+        data_norm = norm(data)
+        return new(resids, data_norm)
+    end
 end
 
 """
@@ -21,27 +26,22 @@ Main update rule
 """
 function update(data, W, H, meta, options)
     if (meta == nothing)
-        meta = _initialize_meta(data, W, H)
+        meta = ANNLSmeta(data, W, H)
     end
 
     # W update
     _update_W!(data, W, H)
+    meta.resids = compute_resids(data, W, H)
 
     if get(options, "mode", nothing) == "parallel"
         _update_H_parallel!(data, W, H)
     else
-        _update_H!(data, W, H)
+        _update_H!(data, W, H, meta)
     end
 
-    meta.resids = tensor_conv(W, H) - data
     return norm(meta.resids) / meta.data_norm, meta
 end
 
-function _initialize_meta(data, W, H)    
-    resids = tensor_conv(W, H) - data
-    data_norm = norm(data)
-    return ANNLSmeta(resids, data_norm)
-end
 
 function _update_W!(data, W, H)
     """
@@ -74,35 +74,44 @@ function _update_H_parallel!(data, W, H)
     end
 end
 
+
 """
 Perform H update a single column at a time
 """
-function _update_H!(data, W, H)
+function _update_H!(data, W, H, meta)
     K, T = size(H)
     L, N, K = size(W)
 
     for t in 1:T
-        b = form_b_vec(data, W, H, t)
-        H[:,t] = NonNegLeastSquares.nonneg_lsq(W[1,:,:], b, alg=:pivot)
+        last = min(t+L-1, T)
+        block_size = last - t + 1
+        
+        # Remove contribution to residual
+        for k = 1:K
+            meta.resids[:, t:last] -= H[k, t] * W[1:block_size, :, k]'
+        end
+
+        unfolded_W = _unfold_W(W)[1:block_size*N, :]
+        b = vec(meta.resids[:, t:last])
+        
+        # Update one column of H
+        H[:,t] = NonNegLeastSquares.nonneg_lsq(unfolded_W, -b, alg=:pivot)
+
+        # Update residual
+        for k = 1:K
+            meta.resids[:, t:last] += H[k, t] * W[1:block_size, :, k]'
+        end
     end
 end
 
-"""
-Forms the vector b for the nonnegative least squres objective
-||Ax - b|| required to update column t of H
-"""
-function form_b_vec(data, W, H, t)
+
+
+function _unfold_W(W)
     L, N, K = size(W)
-    v = zeros(N,1)
-    for l = 1:L-1
-        h_idx = t-l
-        if h_idx <= 0
-            continue
-        end
-        v += W[l+1,:,:] * H[:,h_idx]
-    end
-    return data[:,t] - v
+    return reshape(permutedims(W, (2,1,3)), N*L, K)
 end
+
+
 
 """
 Fold W_tilde (a block matrix) into a W tensor
