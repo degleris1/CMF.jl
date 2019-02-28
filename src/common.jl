@@ -73,4 +73,11 @@ function shift_and_stack(H, L)
     return H_stacked
 end
 
+"""
+Return a shift matrix of a given size and shift. 
+"""
+function shift_matrix(T, l)
+    return diagm(l => ones(T-abs(l)))
+end
+
 ;
