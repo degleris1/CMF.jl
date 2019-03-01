@@ -9,7 +9,8 @@ plot(xlabel="Time", ylabel="Loss")
 
 for (alg, options, label) in [
     ["hals", Dict(), "HALS"],
-    ["mult", Dict(), "MULT"],
+    #["mult", Dict(), "MULT"],
+    ["annls", Dict(), "ANNLS"],
 ]
     results = fit_cnmf(data, L=10, K=5,
                        alg=alg, alg_options=options,
