@@ -88,6 +88,6 @@ function maze(;path=MAZE_DATAPATH,
         kern = KernelFactors.gaussian((0,kernel_width))
         data = imfilter(data,kern)
     end
-
+    return data
 end
 ;
