@@ -1,3 +1,5 @@
+using JLD
+
 include("./mult.jl")  # MultUpdate
 include("./hals.jl")  # HALSUpdate
 include("./annls.jl") 
@@ -67,5 +69,24 @@ function init_rand(data, L, K)
     H *= sqrt(alpha)
 
     return W, H
+end
+
+"""
+Simple wrapper to save a CNMF_results struct using JLD.
+"""
+function save_model(results::CNMF_results, path)
+    jldopen(path, "w") do file
+        write(file, "results", results) 
+    end
+end
+
+"""
+Load a CNMF_results struct using JLD.
+"""
+function load_model(path)
+    f = jldopen(path, "r") do file
+        read(file, "results")
+    end
+    return f
 end
 ;
