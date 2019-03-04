@@ -33,11 +33,8 @@ function update(data, W, H, meta, options)
     _update_W!(data, W, H)
     meta.resids = compute_resids(data, W, H)
 
-    if get(options, "mode", nothing) == "parallel"
-        _update_H_parallel!(data, W, H)
-    else
-        _update_H!(data, W, H, meta)
-    end
+    # H update
+    _update_H!(data, W, H, meta)
 
     return norm(meta.resids) / meta.data_norm, meta
 end
@@ -54,25 +51,7 @@ function _update_W!(data, W, H)
     W[:,:,:] = fold_W(t(W_unfold), L, N, K)
 end
 
-"""
-Perform H update updating every L colums of H simultaneously.
-"""
-function _update_H_parallel!(data, W, H)
-    K, T = size(H)
-    L, N, K = size(W)
 
-    # Update every L columns of H
-    ind_set_total = []
-    for start in 1:L
-        ind_set = start:L:T
-        B = zeros(N,length(ind_set))
-        for (i, t) in enumerate(ind_set)
-            B[:,i] = form_b_vec(data, W, H, t)
-        end
-        # Solve L NNLS problems
-        H[:,ind_set] = NonNegLeastSquares.nonneg_lsq(W[1,:,:], B, alg=:pivot)
-    end
-end
 
 
 """
@@ -124,6 +103,7 @@ function fold_W(W_mat, L, N, K)
     end
     return W_tens
 end
+
 
 """
 Convenience function for transpose
