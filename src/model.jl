@@ -76,7 +76,11 @@ Simple wrapper to save a CNMF_results struct using JLD.
 """
 function save_model(results::CNMF_results, path)
     jldopen(path, "w") do file
-        write(file, "results", results) 
+        write(file, "data", results.data)
+        write(file, "W", results.W)
+        write(file, "H", results.H)
+        write(file, "time_hist", results.time_hist)
+        write(file, "loss_hist", results.loss_hist)
     end
 end
 
@@ -84,9 +88,12 @@ end
 Load a CNMF_results struct using JLD.
 """
 function load_model(path)
-    f = jldopen(path, "r") do file
-        read(file, "results")
-    end
-    return f
+    results_dict = JLD.load(path)
+    data = results_dict["data"]
+    W = results_dict["W"]
+    H = results_dict["H"]
+    time_hist = results_dict["time_hist"]
+    loss_hist = results_dict["loss_hist"]
+    return CNMF_results(data, W, H, time_hist, loss_hist)
 end
 ;
