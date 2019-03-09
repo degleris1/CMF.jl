@@ -25,9 +25,17 @@ end
 
 
 function fit_cnmf(data; L=7, K=3, alg="mult",
-                  alg_options=Dict(), max_itr=100, max_time=Inf)
+                  alg_options=Dict(), max_itr=100, max_time=Inf
+                  lambda1=0, lambda2=0, initW=nothing, initH=nothing)
     # Initialize
     W, H = init_rand(data, L, K)
+    if (initW != nothing)
+        W = initW
+    end
+    if (initH != nothing)
+        H = initH
+    end
+    
     meta = nothing
     
     # Set up optimization tracking
