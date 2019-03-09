@@ -11,7 +11,7 @@ alg_results = Dict()
 for (alg, options, label) in [
     [:hals, Dict(), "HALS"],
     #[:mult, Dict(), "MULT"],
-    [:anls, Dict(), "ANNLS"],
+    [:anls, Dict(), "ANLS"],
 ]
     results = fit_cnmf(data, L=10, K=5,
                        alg=alg, alg_options=options,
