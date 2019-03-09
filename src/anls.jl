@@ -1,4 +1,4 @@
-module ANNLS
+module ANLS
 """
 Fit CNMF using Alternating Non-Negative Least Squares.
 Note: this requires having the NonNegLeastSquares source available 
@@ -17,7 +17,7 @@ Main update rule
 """
 function update!(data, W, H, meta, options)
     if (meta == nothing)
-        meta = ANNLSmeta(data, W, H)
+        meta = ANLSmeta(data, W, H)
     end
 
     # W update
@@ -36,10 +36,10 @@ Private
 """
 
 
-mutable struct ANNLSmeta
+mutable struct ANLSmeta
     resids
     data_norm
-    function ANNLSmeta(data, W, H)
+    function ANLSmeta(data, W, H)
         resids = compute_resids(data, W, H)
         data_norm = norm(data)
         return new(resids, data_norm)

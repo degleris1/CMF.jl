@@ -2,14 +2,14 @@ using JLD
 
 include("./mult.jl")  # MultUpdate
 include("./hals.jl")  # HALSUpdate
-include("./annls.jl") 
+include("./anls.jl") 
 include("./common.jl")
 
 
 ALGORITHMS = Dict(
-    "mult" => MULT,
-    "hals" => HALS,
-    "annls" => ANNLS
+    :mult => MULT,
+    :hals => HALS,
+    :anls => ANLS
 )
 
 struct CNMF_results
@@ -24,7 +24,7 @@ struct CNMF_results
 end
 
 
-function fit_cnmf(data; L=7, K=3, alg="mult",
+function fit_cnmf(data; L=7, K=3, alg=:mult,
                   alg_options=Dict(), max_itr=100, max_time=Inf,
                   lambda1=0, lambda2=0, initW=nothing, initH=nothing)
     # Initialize
