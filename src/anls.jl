@@ -1,4 +1,4 @@
-module ANNLS
+module ANLS
 """
 Fit CNMF using Alternating Non-Negative Least Squares.
 Note: this requires having the NonNegLeastSquares source available 
@@ -11,22 +11,13 @@ import NonNegLeastSquares
 using LinearAlgebra
 include("./common.jl")
 
-mutable struct ANNLSmeta
-    resids
-    data_norm
-    function ANNLSmeta(data, W, H)
-        resids = compute_resids(data, W, H)
-        data_norm = norm(data)
-        return new(resids, data_norm)
-    end
-end
 
 """
 Main update rule
 """
-function update(data, W, H, meta, options)
+function update!(data, W, H, meta, options)
     if (meta == nothing)
-        meta = ANNLSmeta(data, W, H)
+        meta = ANLSmeta(data, W, H)
     end
 
     # W update
@@ -37,6 +28,22 @@ function update(data, W, H, meta, options)
     _update_H!(data, W, H, meta)
 
     return norm(meta.resids) / meta.data_norm, meta
+end
+
+
+"""
+Private
+"""
+
+
+mutable struct ANLSmeta
+    resids
+    data_norm
+    function ANLSmeta(data, W, H)
+        resids = compute_resids(data, W, H)
+        data_norm = norm(data)
+        return new(resids, data_norm)
+    end
 end
 
 

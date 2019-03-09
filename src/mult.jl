@@ -5,9 +5,9 @@ module MULT
 include("./common.jl")
 
 
-function update(data, W, H, meta, options)
+function update!(data, W, H, meta, options)
     if (meta == nothing)
-        meta = _initialize_meta(data, W, H)
+        meta = MultMeta(data, W, H)
     end
     
     num_W, denom_W = _compute_mult_W(data, W, H)
@@ -31,13 +31,11 @@ Private
 mutable struct MultMeta
     resids
     data_norm
-end
-
-
-function _initialize_meta(data, W, H)
-    resids = compute_resids(data, W, H)
-    data_norm = norm(data)
-    return MultMeta(resids, data_norm)
+    function MultMeta(data, W, H)
+        resids = compute_resids(data, W, H)
+        data_norm = norm(data)
+        return new(resids, data_norm)
+    end
 end
 
 

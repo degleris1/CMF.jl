@@ -9,9 +9,9 @@ include("./common.jl")
 """
 Main update rule
 """
-function update(data, W, H, meta, options)
+function update!(data, W, H, meta, options)
     if (meta == nothing)
-        meta = _initialize_meta!(data, W, H)
+        meta = HALSMeta(data, W, H)
     end
 
     # W update
@@ -51,32 +51,31 @@ mutable struct HALSMeta
 
     W_norms  # H setup
     Wk_list
-end
 
-
-function _initialize_meta!(data, W, H)
-    L, N, K = size(W)
-    T = size(H)[2]
+    function HALSMeta(data, W, H)
+        L, N, K = size(W)
+        T = size(H)[2]
     
-    resids = tensor_conv(W, H) - data
-    data_norm = norm(data)
+        resids = tensor_conv(W, H) - data
+        data_norm = norm(data)
 
-    # Set up batches
-    batch_inds = []
-    batch_sizes = []
-    for k = 1:K
-        push!(batch_sizes, [])
-        push!(batch_inds, [])
-        for l = 0:(L-1)
-            batch = (l+1):L:(T-L)
-            push!(batch_inds[k], batch)
-            push!(batch_sizes[k], length(batch))
+        # Set up batches
+        batch_inds = []
+        batch_sizes = []
+        for k = 1:K
+            push!(batch_sizes, [])
+            push!(batch_inds, [])
+            for l = 0:(L-1)
+                batch = (l+1):L:(T-L)
+                push!(batch_inds[k], batch)
+                push!(batch_sizes[k], length(batch))
+            end
         end
+        
+        return new(resids, data_norm, batch_inds, batch_sizes,  # Internals
+                   nothing, nothing,  # W setup
+                   nothing, nothing)  # H setup
     end
-    
-    return HALSMeta(resids, data_norm, batch_inds, batch_sizes,  # Internals
-                    nothing, nothing,  # W setup
-                    nothing, nothing)  # H setup
 end
 
 

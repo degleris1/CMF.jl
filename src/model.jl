@@ -2,14 +2,14 @@ using JLD
 
 include("./mult.jl")  # MultUpdate
 include("./hals.jl")  # HALSUpdate
-include("./annls.jl") 
+include("./anls.jl") 
 include("./common.jl")
 
 
 ALGORITHMS = Dict(
-    "mult" => MULT,
-    "hals" => HALS,
-    "annls" => ANNLS
+    :mult => MULT,
+    :hals => HALS,
+    :anls => ANLS
 )
 
 struct CNMF_results
@@ -24,10 +24,18 @@ struct CNMF_results
 end
 
 
-function fit_cnmf(data; L=7, K=3, alg="mult",
-                  alg_options=Dict(), max_itr=100, max_time=Inf)
+function fit_cnmf(data; L=7, K=3, alg=:mult,
+                  alg_options=Dict(), max_itr=100, max_time=Inf,
+                  lambda1=0, lambda2=0, initW=nothing, initH=nothing)
     # Initialize
     W, H = init_rand(data, L, K)
+    if (initW != nothing)
+        W = initW
+    end
+    if (initH != nothing)
+        H = initH
+    end
+    
     meta = nothing
     
     # Set up optimization tracking
@@ -42,7 +50,7 @@ function fit_cnmf(data; L=7, K=3, alg="mult",
 
         # Update with timing
         t0 = time()
-        loss, meta = ALGORITHMS[alg].update(data, W, H, meta, alg_options)
+        loss, meta = ALGORITHMS[alg].update!(data, W, H, meta, alg_options)
         dur = time() - t0
         
         # Record time and loss

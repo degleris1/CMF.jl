@@ -7,10 +7,10 @@ include("../src/datasets.jl")
 
 # Algorithm settings
 algs_under_test = [
-    Dict(:name => "mult",
+    Dict(:name => :mult,
          :opts => Dict(),
          :label => "MULT"),
-    Dict(:name => "hals",
+    Dict(:name => :hals,
          :opts => Dict(),
          :label => "HALS")
 ]
