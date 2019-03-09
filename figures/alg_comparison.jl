@@ -14,31 +14,24 @@ datasets = Dict(
                   kernel_width=2)
 )
 
-algs = [
-    Dict(:name => "mult",
-         :opts => Dict()
-    ),
-    Dict(:name => "hals",
-         :opts => Dict()
-    ),
-    Dict(:name => "annls",
-         :opts => Dict()
-    )
-]
+# alg -> options
+algs = Dict(
+    :mult => Dict(),
+    :hals => Dict(),
+    :anls => Dict()
+) 
 
 all_results = Dict()
 for (dataset_name, data) in datasets
     all_results[dataset_name] = Dict()
 
-    for alg in algs
-        alg_name = alg[:name]
-
+    for (alg, options) in algs
         results = fit_cnmf(data, 
                             L=20, K=3,
-                            alg=alg_name, alg_options=alg[:opts],
-                            max_itr=200, max_time=6)
+                            alg=alg, alg_options=options,
+                            max_itr=200, max_time=30)
 
-        all_results[dataset_name][alg_name] = results
+        all_results[dataset_name][alg] = results
     end
 end
 
