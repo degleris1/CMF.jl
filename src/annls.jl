@@ -11,20 +11,11 @@ import NonNegLeastSquares
 using LinearAlgebra
 include("./common.jl")
 
-mutable struct ANNLSmeta
-    resids
-    data_norm
-    function ANNLSmeta(data, W, H)
-        resids = compute_resids(data, W, H)
-        data_norm = norm(data)
-        return new(resids, data_norm)
-    end
-end
 
 """
 Main update rule
 """
-function update(data, W, H, meta, options)
+function update!(data, W, H, meta, options)
     if (meta == nothing)
         meta = ANNLSmeta(data, W, H)
     end
@@ -37,6 +28,22 @@ function update(data, W, H, meta, options)
     _update_H!(data, W, H, meta)
 
     return norm(meta.resids) / meta.data_norm, meta
+end
+
+
+"""
+Private
+"""
+
+
+mutable struct ANNLSmeta
+    resids
+    data_norm
+    function ANNLSmeta(data, W, H)
+        resids = compute_resids(data, W, H)
+        data_norm = norm(data)
+        return new(resids, data_norm)
+    end
 end
 
 
