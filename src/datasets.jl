@@ -1,5 +1,7 @@
 using HDF5
 using ImageFiltering
+import DSP
+import WAV
 
 function gen_synthetic(;K=3, N=100, L=20, T=50, H_sparsity=0.9, noise_scale=1.0)
     # Generate random convolutional parameters
@@ -29,6 +31,7 @@ function _gauss_plus_delay(n_steps)
     y = exp.(-x.^2)
     return y / maximum(y)
 end
+
 
 """
 Silicon-Probe neural recordings from rats before, during, and after
@@ -90,4 +93,35 @@ function maze(;path=MAZE_DATAPATH,
     end
     return data
 end
+
+
+"""
+Piano dataset.
+First 30 seconds of Bach Prelude and Fugue No. 1 in D Major
+Stored in a wave file sampled at 44100 Hz
+
+Reference
+---------
+https://www.youtube.com/watch?v=3srDTD2M8ol
+"""
+PIANO_DATAPATH = "/home/anthony/cmf_data/prelude_bach.wav"
+function piano(;path=PIANO_DATAPATH, freq=11025, seconds=30)
+    # Load raw file
+    raw, f = WAV.wavread(PIANO_DATAPATH)
+
+    # Downsample
+    down_rate = Integer(f / freq)
+    downsampled = raw[1 : down_rate : end]
+
+    # Crop
+    last = seconds * freq
+    signal = downsampled[1:last]
+
+    # Create spectogram
+    spect = DSP.spectrogram(signal, 1024, 512, window=DSP.hamming).power
+    
+    return spect
+end
+
+
 ;
