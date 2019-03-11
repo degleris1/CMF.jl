@@ -1,10 +1,10 @@
-using JLD
+using HDF5
 
 include("../src/model.jl")
 include("../src/datasets.jl")
 include("../src/visualize.jl")
 
-RESULTS_PATH = "alg_comparison_results.jld"
+RESULTS_PATH = "alg_comparison_results.h5"
 
 # Initialize dictionaries to store datasets
 datasets = Dict(
@@ -21,6 +21,7 @@ algs = Dict(
     :anls => Dict()
 ) 
 
+fid = h5open(RESULTS_PATH, "w")
 all_results = Dict()
 for (dataset_name, data) in datasets
     all_results[dataset_name] = Dict()
@@ -31,10 +32,16 @@ for (dataset_name, data) in datasets
                             alg=alg, alg_options=options,
                             max_itr=200, max_time=30)
 
-        all_results[dataset_name][alg] = results
+        # Store results from each algorithm/dataset combination using
+        # a separate HDF5 group, to allow read/write from Python.
+        g = HDF5.g_create(fid, "results/$dataset_name/$alg")
+        g["W"] = results.W
+        g["H"] = results.H
+        g["data"] = results.data
+        g["loss_hist"] = results.loss_hist
+        g["time_hist"] = results.time_hist
     end
 end
 
-JLD.save(RESULTS_PATH, "all_results", all_results)
-
+close(fid)
 ;
