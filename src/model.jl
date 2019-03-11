@@ -79,6 +79,28 @@ function init_rand(data, L, K)
     return W, H
 end
 
+
+"""
+Fit several models with varying parameters.
+Possible to iterate over lags (L), number of components (K), and different algorithms (alg).
+"""
+function parameter_sweep(data; L_vals=[7], K_vals=[3], alg_vals=[:mult],
+                         alg_options=Dict(), max_itr=100, max_time=Inf,
+                         lambda1=0, lambda2=0, initW=nothing, initH=nothing)
+    all_results = Dict()
+    for (L, K, alg) in Iterators.product(L_vals, K_vals, alg_vals)
+        all_results[(L, K, alg)] = fit_cnmf(
+            data, L=L, K=K, alg=alg,
+            alg_options=alg_options, max_itr=max_itr, max_time=max_time,
+            lambda1=lambda1, lambda2=lambda2, initW=initW, initH=initH
+        )
+    end
+
+    return all_results
+end
+
+
+
 """
 Simple wrapper to save a CNMF_results struct using JLD.
 """
