@@ -64,7 +64,7 @@ function maze(;path=MAZE_DATAPATH,
     # Reject spikes outside of our time window
     # An end time of -1 corresponds to using all data
     if (end_time == -1)
-        end_time = spike_ids[-1]
+        end_time = spike_ids[end]
     end
 
     spike_idx = (spike_times .>= start_time) .& (spike_times .<= end_time)
