@@ -2,6 +2,7 @@ using HDF5
 using ImageFiltering
 import DSP
 import WAV
+import StatsBase
 
 function gen_synthetic(;K=3, N=100, L=20, T=50, H_sparsity=0.9, noise_scale=1.0)
     # Generate random convolutional parameters
@@ -45,7 +46,8 @@ function maze(;path=MAZE_DATAPATH,
                 start_time=0,
                 end_time=200,
                 bin_time=1e-1,
-                kernel_width=nothing)
+                kernel_width=nothing,
+                zscore=false)
     f = h5open(path, "r") do file
         read(file, "sessInfo/Spikes")
     end
@@ -91,6 +93,14 @@ function maze(;path=MAZE_DATAPATH,
         kern = KernelFactors.gaussian((0,kernel_width))
         data = imfilter(data,kern)
     end
+
+    # optionally zscore each neuron
+    if zscore
+        for i in 1:num_neurons
+            data[i,:] = StatsBase.zscore(data[i,:])
+        end
+    end
+
     return data
 end
 
