@@ -2,7 +2,6 @@ using HDF5
 using ImageFiltering
 import DSP
 import WAV
-import StatsBase
 
 function gen_synthetic(;K=3, N=100, L=20, T=50, H_sparsity=0.9, noise_scale=1.0)
     # Generate random convolutional parameters
@@ -47,13 +46,65 @@ function maze(;path=MAZE_DATAPATH,
                 end_time=200,
                 bin_time=1e-1,
                 kernel_width=nothing,
-                zscore=false)
+                normalize=false,
+                epoch="nothing")
+    """
+    params
+
+        path:         Path to to a sessInfo.mat file from the CRCNS dataset
+        start_time:   Earliest time for which we retrieve data. If "epoch" is specified
+                      this is the time *after* the beginning of that epoch for which we begin
+                      looking for spikes.
+        end_time:     Latest time for which we consider spikes. If epoch is specified, this must
+                      be less than the duration of the epoch, otherwise we raise an error.
+        bin_time:     The length of each bin, in seconds.
+        kernel_width: The standard deviation of the guassian kernel for smoothing. If nothing,
+                      we don't do any smoothing.
+        normalize:    If true, normalize each row using the sum of absolute values.
+        epoch:        The name of the epoch for which to retrieve data. Can be one of:
+                      "PRE", "MAZE", or "POST". Otherwise gives an error.
+    """
+
     f = h5open(path, "r") do file
         read(file, "sessInfo/Spikes")
     end
 
+    g = h5open(path, "r") do file
+        read(file, "sessInfo/Epochs")
+    end
+
     spike_ids = f["SpikeIDs"]
     spike_times = f["SpikeTimes"]
+
+    # Reject spikes outside of our time window
+    # An end time of -1 corresponds to using all data
+    if epoch != nothing
+        if epoch == "PRE"
+            epoch_start, epoch_stop = g["PREEpoch"]
+        elseif epoch == "MAZE"
+            epoch_start, epoch_stop = g["MazeEpoch"]
+        elseif epoch == "POST"
+            epoch_start, epoch_stop = g["POSTEpoch"]
+        else
+            error("Invalid epoch name given.")
+        end
+
+        start_time = epoch_start + start_time
+
+        if (end_time == -1)
+            end_time = epoch_stop
+        else
+            end_time = epoch_start + end_time
+        end
+
+        # Ensure start and end times are valid
+        @assert(start_time >= epoch_start)
+        @assert(end_time <= epoch_stop)
+    else
+        if (end_time == -1)
+            end_time = spike_ids[end]
+        end
+    end
 
     # Only a few neurons have spikes in our data, so we remove
     # unneeded neurons by forming a map from spike_id -> neuron
@@ -62,12 +113,6 @@ function maze(;path=MAZE_DATAPATH,
         id_map[neuron] = i
     end
     neuron_assignments = [id_map[x] for x in spike_ids]
-
-    # Reject spikes outside of our time window
-    # An end time of -1 corresponds to using all data
-    if (end_time == -1)
-        end_time = spike_ids[end]
-    end
 
     spike_idx = (spike_times .>= start_time) .& (spike_times .<= end_time)
     neuron_assignments = neuron_assignments[spike_idx]
@@ -95,9 +140,9 @@ function maze(;path=MAZE_DATAPATH,
     end
 
     # optionally zscore each neuron
-    if zscore
+    if normalize
         for i in 1:num_neurons
-            data[i,:] = StatsBase.zscore(data[i,:])
+            data[i,:] = data[i,:] ./ sum(abs.(data[i,:]))
         end
     end
 
