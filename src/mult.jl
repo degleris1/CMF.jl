@@ -5,7 +5,7 @@ module MULT
 include("./common.jl")
 
 
-function update!(data, W, H, meta, options)
+function update!(data, W, H, meta; kwargs...)
     if (meta == nothing)
         meta = MultMeta(data, W, H)
     end
