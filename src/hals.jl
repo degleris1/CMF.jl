@@ -9,7 +9,7 @@ include("./common.jl")
 """
 Main update rule
 """
-function update!(data, W, H, meta, options)
+function update!(data, W, H, meta; kwargs...)
     if (meta == nothing)
         meta = HALSMeta(data, W, H)
     end
@@ -20,7 +20,7 @@ function update!(data, W, H, meta, options)
 
     # H update
     _setup_H_update!(W, H, meta)
-    if get(options, "mode", nothing) == "parallel"
+    if get(kwargs, :mode, nothing) == "parallel"
         _update_H_parallel!(W, H, meta.resids,
                    meta.batch_inds, meta.batch_sizes,
                    meta.Wk_list, meta.W_norms)

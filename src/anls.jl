@@ -15,7 +15,7 @@ include("./common.jl")
 """
 Main update rule
 """
-function update!(data, W, H, meta, options)
+function update!(data, W, H, meta; kwargs...)
     if (meta == nothing)
         meta = ANLSmeta(data, W, H)
     end
