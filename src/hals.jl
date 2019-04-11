@@ -10,22 +10,30 @@ include("./common.jl")
 Main update rule
 """
 function update!(data, W, H, meta; kwargs...)
+    # unpack regularization args
+    l1_W = get(kwargs, :l1_W, 0)
+    l1_H = get(kwargs, :l1_H, 0)
+    l2_W = get(kwargs, :l2_W, 0)
+    l2_H = get(kwargs, :l2_H, 0)
+   
     if (meta == nothing)
         meta = HALSMeta(data, W, H)
     end
 
     # W update
     _setup_W_update!(W, H, meta)
-    _update_W!(W, meta.H_unfold, meta.H_norms, meta.resids)
+    _update_W!(W, meta.H_unfold, meta.H_norms, meta.resids, l1_W, l2_W)
 
     # H update
     _setup_H_update!(W, H, meta)
-    if get(kwargs, :mode, nothing) == "parallel"
+    if get(kwargs, :parallel, false)
         _update_H_parallel!(W, H, meta.resids,
                    meta.batch_inds, meta.batch_sizes,
-                   meta.Wk_list, meta.W_norms)
+                   meta.Wk_list, meta.W_norms,
+                   l1_H, l2_H)
     else  # regular
-        _update_H_regular!(W, H, meta.resids, meta.Wk_list, meta.W_norms)
+        _update_H_regular!(W, H, meta.resids, meta.Wk_list, meta.W_norms,
+                           l1_H, l2_H)
     end
     
     return norm(meta.resids) / meta.data_norm, meta
@@ -116,28 +124,28 @@ W update
 """
 
 
-function _update_W!(W, H_unfold, H_norms, resids)
+function _update_W!(W, H_unfold, H_norms, resids, l1_W, l2_W)
     L, N, K = size(W)
     for k = 1:K
         for l = 0:(L-1)
-            _update_W_col!(k, l, W, H_unfold, H_norms, resids)
+            _update_W_col!(k, l, W, H_unfold, H_norms, resids, l1_W, l2_W)
         end
     end
 end
 
 
-function _update_W_col!(k, l, W, H_unfold, H_norms, resids)
+function _update_W_col!(k, l, W, H_unfold, H_norms, resids, l1_W, l2_W)
     L, N, K = size(W)
     ind = l*K + k
 
     resids .-= W[l+1, :, k] * H_unfold[ind, :]'  # outer product
-    W[l+1, :, k] = _next_W_col(H_unfold[ind, :], H_norms[ind], resids)
+    W[l+1, :, k] = _next_W_col(H_unfold[ind, :], H_norms[ind], resids, l1_W, l2_W)
     resids .+= W[l+1, :, k] * H_unfold[ind, :]'  # outer product
 end
 
                              
-function _next_W_col(Hkl, norm_Hkl, resid)
-    return max.((-resid * Hkl) ./ (norm_Hkl^2 + EPSILON), 0.0)
+function _next_W_col(Hkl, norm_Hkl, resid, l1_W, l2_W)
+    return max.((-resid * Hkl .- l1_W) ./ (norm_Hkl^2 + EPSILON + l2_W), 0.0)
 end
 
 
@@ -147,7 +155,9 @@ H update
 --------
 """
 
-function _update_H_parallel!(W, H, resids, batch_inds, batch_sizes, Wk_list, W_norms)
+function _update_H_parallel!(W, H, resids, batch_inds, 
+                             batch_sizes, Wk_list, W_norms,
+                             l1_H, l2_H)
     L, N, K = size(W)
     T = size(H)[2]
 
@@ -156,25 +166,27 @@ function _update_H_parallel!(W, H, resids, batch_inds, batch_sizes, Wk_list, W_n
         for l = 0:(L-1)
             _update_H_batch!(W, H, resids, k, l,
                              batch_inds[k][l+1], batch_sizes[k][l+1],
-                             Wk_list[k], norm_Wk)
-            _update_H_entry!(W, H, resids, k, T-L+l+1, Wk_list[k], W_norms)
+                             Wk_list[k], norm_Wk,
+                             l1_H, l2_H)
+            _update_H_entry!(W, H, resids, k, T-L+l+1, Wk_list[k], W_norms,
+                             l1_H, l2_H)
         end
     end
 end
 
 
-function _update_H_regular!(W, H, resids, Wk_list, W_norms)
+function _update_H_regular!(W, H, resids, Wk_list, W_norms, l1_H, l2_H)
     K, T = size(H)
     
     for k = 1:K
         for t = 1:T
-            _update_H_entry!(W, H, resids, k, t, Wk_list[k], W_norms)
+            _update_H_entry!(W, H, resids, k, t, Wk_list[k], W_norms, l1_H, l2_H)
         end
     end
 end
 
 
-function _update_H_entry!(W, H, resids, k, t, Wk, W_norms)
+function _update_H_entry!(W, H, resids, k, t, Wk, W_norms, l1_H, l2_H)
     L, N, K =size(W)
     T = size(H)[2]
 
@@ -185,20 +197,20 @@ function _update_H_entry!(W, H, resids, k, t, Wk, W_norms)
     remainder = resids[:, t:min(t+L-1, T)] - (H[k, t] * Wk[:, 1:min(T-t+1, L)])
 
     # Update
-    H[k, t] = _next_H_entry(Wk[:, 1:min(T-t+1, L)], norm_Wkt, remainder)
+    H[k, t] = _next_H_entry(Wk[:, 1:min(T-t+1, L)], norm_Wkt, remainder, l1_H, l2_H)
 
     # Add factor back to residual
     resids[:, t:min(t+L-1, T)] = remainder + (H[k, t] * Wk[:, 1:min(T-t+1, L)])
 end
 
 
-function _next_H_entry(Wkt, norm_Wkt, remainder)
+function _next_H_entry(Wkt, norm_Wkt, remainder, l1_H, l2_H)
     trace = reshape(Wkt, length(Wkt))' * reshape(-remainder, length(remainder))
-    return max(trace / (norm_Wkt ^ 2 + EPSILON), 0)
+    return max((trace - l1_H) / (norm_Wkt ^ 2 + EPSILON + l2_H), 0)
 end
 
 
-function _update_H_batch!(W, H, resids, k, l, batch_ind, n_batch, Wk, norm_Wk)
+function _update_H_batch!(W, H, resids, k, l, batch_ind, n_batch, Wk, norm_Wk, l1_H, l2_H)
     L, N, K = size(W)
 
     # Set up batch
@@ -209,7 +221,7 @@ function _update_H_batch!(W, H, resids, k, l, batch_ind, n_batch, Wk, norm_Wk)
     _add_factor!(resids, batch, -Wk, batch_ind, n_batch, L)
 
     # Update H
-    H[k, batch_ind] = _next_H_batch(Wk, norm_Wk, resids, batch_ind, n_batch, L)
+    H[k, batch_ind] = _next_H_batch(Wk, norm_Wk, resids, batch_ind, n_batch, L, l1_H, l2_H)
 
     # Add factor back to residual
     new_batch = H[k, batch_ind]
@@ -217,13 +229,13 @@ function _update_H_batch!(W, H, resids, k, l, batch_ind, n_batch, Wk, norm_Wk)
 end
 
 
-function _next_H_batch(Wk, norm_Wk, resids, batch_ind, n_batch, L)
+function _next_H_batch(Wk, norm_Wk, resids, batch_ind, n_batch, L, l1_H, l2_H)
     traces = zeros(n_batch)
     for i = 1:n_batch
         j = batch_ind[i]
         traces[i] = reshape(Wk, length(Wk))' * reshape(resids[:, j:j+L-1], length(Wk))
     end
-    return max.(traces / (norm_Wk ^ 2 + EPSILON), 0)
+    return max.( (traces .- l1_H) / (norm_Wk ^ 2 + EPSILON + l2_H), 0)
 end
 
 
