@@ -1,9 +1,7 @@
-using HDF5
-using ImageFiltering
-import DSP
-import WAV
+## Manages datasets ##
 
-function gen_synthetic(;K=3, N=100, L=20, T=50, H_sparsity=0.9, noise_scale=1.0)
+
+function gen_synthetic(;K=3, N=100, L=20, T=500, H_sparsity=0.9, noise_scale=1.0)
     # Generate random convolutional parameters
     W = zeros(L, N, K)
     H = rand(K, T)

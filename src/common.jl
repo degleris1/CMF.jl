@@ -1,16 +1,5 @@
 using LinearAlgebra
-
-EPSILON = eps()
-
-
-function compute_loss(data, W, H)
-    return norm(compute_resids(data, W, H)) / norm(data)
-end
-
-
-function compute_resids(data, W, H)
-    return tensor_conv(W, H) - data
-end
+const EPSILON = eps()
 
 
 function tensor_conv(W, H)
@@ -23,6 +12,12 @@ function tensor_conv(W, H)
     end
     return pred
 end
+
+"""Computes normalized quadratic loss."""
+compute_loss(data, W, H) = norm(compute_resids(data, W, H)) / norm(data)
+
+"""Computes matrix of residuals."""
+compute_resids(data, W, H) = tensor_conv(W, H) - data
 
 
 function tensor_transconv(W, X)
@@ -72,12 +67,3 @@ function shift_and_stack(H, L)
 
     return H_stacked
 end
-
-"""
-Return a shift matrix of a given size and shift. 
-"""
-function shift_matrix(T, l)
-    return diagm(l => ones(T-abs(l)))
-end
-
-;

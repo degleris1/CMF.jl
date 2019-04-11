@@ -1,7 +1,5 @@
 module MULT
 
-
-# Imports
 include("./common.jl")
 
 
@@ -71,4 +69,3 @@ end
 
 
 end  # module
-;

@@ -1,8 +1,5 @@
 module HALS
 
-
-# Imports
-using LinearAlgebra
 include("./common.jl")
 
 

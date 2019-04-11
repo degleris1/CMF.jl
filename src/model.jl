@@ -1,17 +1,12 @@
 using JLD
 
-include("./mult.jl")  # MultUpdate
-include("./hals.jl")  # HALSUpdate
-include("./anls.jl") 
-include("./common.jl")
-
-
 ALGORITHMS = Dict(
     :mult => MULT,
     :hals => HALS,
-    :anls => ANLS
+    # :anls => ANLS
 )
 
+"""Holds results from a single CNMF fit."""
 struct CNMF_results
     data::Array{Float64}
     W::Array{Float64}
@@ -22,6 +17,12 @@ struct CNMF_results
         return new(data, W, H, time_hist, loss_hist)
     end
 end
+
+"""Returns number of model motifs."""
+num_components(r::CNMF_results) = size(r.W, 3)
+
+"""Returns width of each motif."""
+num_lags(r::CNMF_results) = size(r.W, 1)
 
 
 function fit_cnmf(data; L=10, K=5, alg=:mult,
@@ -96,10 +97,7 @@ function parameter_sweep(data; L_vals=[7], K_vals=[3], alg_vals=[:mult],
 end
 
 
-
-"""
-Simple wrapper to save a CNMF_results struct using JLD.
-"""
+"""Saves CNMF_results."""
 function save_model(results::CNMF_results, path)
     jldopen(path, "w") do file
         write(file, "data", results.data)
@@ -110,9 +108,8 @@ function save_model(results::CNMF_results, path)
     end
 end
 
-"""
-Load a CNMF_results struct using JLD.
-"""
+
+"""Loads CNMF_results."""
 function load_model(path)
     results_dict = JLD.load(path)
     data = results_dict["data"]
@@ -122,4 +119,5 @@ function load_model(path)
     loss_hist = results_dict["loss_hist"]
     return CNMF_results(data, W, H, time_hist, loss_hist)
 end
-;
+
+
