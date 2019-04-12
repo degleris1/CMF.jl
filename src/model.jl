@@ -18,11 +18,35 @@ struct CNMF_results
     end
 end
 
-"""Returns number of model motifs."""
-num_components(r::CNMF_results) = size(r.W, 3)
 
 """Returns width of each motif."""
 num_lags(r::CNMF_results) = size(r.W, 1)
+
+"""Returns the number of measured time series."""
+num_units(r::CNMF_results) = size(r.W, 2)
+
+"""Returns number of model motifs."""
+num_components(r::CNMF_results) = size(r.W, 3)
+
+"""Sorts units to reveal sequences."""
+function sortperm(r::CNMF_results)
+
+    # For each unit, compute the largest weight across
+    # components.
+    sum_over_lags = dropdims(sum(r.W, dims=1), dims=1)
+    max_component = argmax.(eachrow(sum_over_lags))
+
+    # For each unit, compute the largest weight across
+    # lags (within largest component).
+    max_lag = Int64[]
+    for (n, c) in enumerate(max_component)
+        push!(max_lag, argmax(r.W[:, n, c]))
+    end
+
+    # Lexographically sort units.
+    return sortperm(
+        [CartesianIndex(i, j) for (i, j) in zip(max_lag, max_component)])
+end
 
 
 function fit_cnmf(data; L=10, K=5, alg=:mult,

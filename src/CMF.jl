@@ -6,6 +6,10 @@ using HDF5
 using ImageFiltering
 import DSP
 import WAV
+import Distributions
+import Base: sortperm
+
+const ds = Distributions
 
 # Source files.
 include("./common.jl")
