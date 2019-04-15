@@ -28,6 +28,9 @@ num_units(r::CNMF_results) = size(r.W, 2)
 """Returns number of model motifs."""
 num_components(r::CNMF_results) = size(r.W, 3)
 
+"""Returns number of iterations performed."""
+num_iter(r::CNMF_results) = length(loss_hist)
+
 """Sorts units to reveal sequences."""
 function sortperm(r::CNMF_results)
 
