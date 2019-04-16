@@ -1,5 +1,6 @@
 import JLD
 import HDF5
+import Base: sortperm
 
 include("./mult.jl")
 include("./hals.jl")
