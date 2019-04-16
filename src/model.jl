@@ -4,7 +4,7 @@ import HDF5
 ALGORITHMS = Dict(
     :mult => MULT,
     :hals => HALS,
-    # :anls => ANLS
+    :anls => ANLS
 )
 
 """Holds results from a single CNMF fit."""
