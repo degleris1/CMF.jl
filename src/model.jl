@@ -14,9 +14,11 @@ struct CNMF_results
     H::Array{Float64}
     time_hist::Array{Float64}
     loss_hist::Array{Float64}
-    function CNMF_results(data, W, H, time_hist, loss_hist)
-        return new(data, W, H, time_hist, loss_hist)
-    end
+    l1_H::Float64
+    l2_H::Float64
+    l1_W::Float64
+    l2_W::Float64
+    alg::Symbol
 end
 
 
@@ -55,7 +57,9 @@ end
 
 function fit_cnmf(data; L=10, K=5, alg=:mult,
                   max_itr=100, max_time=Inf,
+                  l1_H=0, l2_H=0, l1_W=0, l2_W=0,
                   kwargs...)
+
     # Initialize
     W, H = init_rand(data, L, K)
     W = get(kwargs, :initW, W)
@@ -75,7 +79,19 @@ function fit_cnmf(data; L=10, K=5, alg=:mult,
 
         # Update with timing
         t0 = time()
-        loss, meta = ALGORITHMS[alg].update!(data, W, H, meta; kwargs...)
+        if alg == :anls
+            (l1_H == 0 &&
+             l2_H == 0 &&
+             l1_W == 0 &&
+             l2_W == 0) || error("Regularization not supported with ANLS")
+             loss, meta = ALGORITHMS[alg].update!(data, W, H, meta;
+                                             kwargs...)
+        else
+            loss, meta = ALGORITHMS[alg].update!(data, W, H, meta;
+                                                 l1_H=l1_H, l2_H=l2_H,
+                                                 l1_W=l1_W, l2_W=l2_W,
+                                                 kwargs...)
+        end
         dur = time() - t0
         
         # Record time and loss
@@ -83,7 +99,8 @@ function fit_cnmf(data; L=10, K=5, alg=:mult,
         push!(loss_hist, loss)
     end
 
-    return CNMF_results(data, W, H, time_hist, loss_hist)
+    return CNMF_results(data, W, H, time_hist, loss_hist,
+                        l1_H, l2_H, l1_W, l2_W, alg)
 end
 
 
@@ -133,6 +150,11 @@ function save_model(results::CNMF_results, path)
         HDF5.write(file, "data", results.data)
         HDF5.write(file, "loss_hist", results.loss_hist)
         HDF5.write(file, "time_hist", results.time_hist)
+        HDF5.write(file, "l1_H", results.l1_H)
+        HDF5.write(file, "l2_H", results.l2_H)
+        HDF5.write(file, "l1_W", results.l1_W)
+        HDF5.write(file, "l2_W", results.l2_W)
+        HDF5.write(file, "alg", String(results.alg))
     end
         
 end
@@ -140,15 +162,19 @@ end
 
 """Loads CNMF_results."""
 function load_model(path)
-    c = HDF5.h5open(path, "r") do file
-        HDF5.read(file, "W")
-        HDF5.read(file, "H")
-        HDF5.read(file, "data")
-        HDF5.read(file, "loss_hist")
-        HDF5.read(file, "time_hist")
-    end
-
-    return CNMF_results(data, W, H, time_hist, loss_hist)
+    f = HDF5.h5open(path, "r")
+    W = HDF5.read(f, "W")
+    H = HDF5.read(f, "H")
+    data = HDF5.read(f, "data")
+    loss_hist = HDF5.read(f, "loss_hist")
+    time_hist = HDF5.read(f, "time_hist")
+    l1_H = HDF5.read(f, "l1_H")
+    l2_H = HDF5.read(f, "l2_H")
+    l1_W = HDF5.read(f, "l1_W")
+    l2_W = HDF5.read(f, "l2_W")
+    alg = Symbol(HDF5.read(f, "alg"))
+    return CNMF_results(data, W, H, time_hist, loss_hist,
+                        l1_H, l2_H, l1_W, l2_W, alg)
 end
 
 
