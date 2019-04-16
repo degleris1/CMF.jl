@@ -1,6 +1,11 @@
 import JLD
 import HDF5
 
+include("./mult.jl")
+include("./hals.jl")
+include("./anls.jl")
+using .MULT, .HALS, .ANLS
+
 ALGORITHMS = Dict(
     :mult => MULT,
     :hals => HALS,
