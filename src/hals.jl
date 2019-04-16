@@ -9,12 +9,8 @@ include("./common.jl")
 """
 Main update rule
 """
-function update!(data, W, H, meta; kwargs...)
-    # unpack regularization args
-    l1_W = get(kwargs, :l1_W, 0)
-    l1_H = get(kwargs, :l1_H, 0)
-    l2_W = get(kwargs, :l2_W, 0)
-    l2_H = get(kwargs, :l2_H, 0)
+function update!(data, W, H, meta; l1_H=0, l2_H=0,
+                 l1_W=0, l2_W=0, kwargs...)
    
     if (meta == nothing)
         meta = HALSMeta(data, W, H)
