@@ -1,18 +1,13 @@
 import JLD
 import HDF5
 
-include("./mult.jl")  # MultUpdate
-include("./hals.jl")  # HALSUpdate
-include("./anls.jl") 
-include("./common.jl")
-
-
 ALGORITHMS = Dict(
     :mult => MULT,
     :hals => HALS,
     :anls => ANLS
 )
 
+"""Holds results from a single CNMF fit."""
 struct CNMF_results
     data::Array{Float64}
     W::Array{Float64}
@@ -22,6 +17,39 @@ struct CNMF_results
     function CNMF_results(data, W, H, time_hist, loss_hist)
         return new(data, W, H, time_hist, loss_hist)
     end
+end
+
+
+"""Returns width of each motif."""
+num_lags(r::CNMF_results) = size(r.W, 1)
+
+"""Returns the number of measured time series."""
+num_units(r::CNMF_results) = size(r.W, 2)
+
+"""Returns number of model motifs."""
+num_components(r::CNMF_results) = size(r.W, 3)
+
+"""Returns number of iterations performed."""
+num_iter(r::CNMF_results) = length(loss_hist)
+
+"""Sorts units to reveal sequences."""
+function sortperm(r::CNMF_results)
+
+    # For each unit, compute the largest weight across
+    # components.
+    sum_over_lags = dropdims(sum(r.W, dims=1), dims=1)
+    max_component = argmax.(eachrow(sum_over_lags))
+
+    # For each unit, compute the largest weight across
+    # lags (within largest component).
+    max_lag = Int64[]
+    for (n, c) in enumerate(max_component)
+        push!(max_lag, argmax(r.W[:, n, c]))
+    end
+
+    # Lexographically sort units.
+    return sortperm(
+        [CartesianIndex(i, j) for (i, j) in zip(max_lag, max_component)])
 end
 
 
@@ -97,10 +125,7 @@ function parameter_sweep(data; L_vals=[7], K_vals=[3], alg_vals=[:mult],
 end
 
 
-
-"""
-Simple wrapper to save a CNMF_results struct using JLD.
-"""
+"""Saves CNMF_results."""
 function save_model(results::CNMF_results, path)
     HDF5.h5open(path, "w") do file
         HDF5.write(file, "W", results.W)
@@ -111,9 +136,9 @@ function save_model(results::CNMF_results, path)
     end
         
 end
-"""
-Load a CNMF_results struct using JLD.
-"""
+
+
+"""Loads CNMF_results."""
 function load_model(path)
     c = HDF5.h5open(path, "r") do file
         HDF5.read(file, "W")
@@ -125,4 +150,5 @@ function load_model(path)
 
     return CNMF_results(data, W, H, time_hist, loss_hist)
 end
-;
+
+
