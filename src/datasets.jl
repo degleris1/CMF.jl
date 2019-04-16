@@ -189,10 +189,10 @@ https://www.youtube.com/watch?v=3srDTD2M8ol
 PIANO_DATAPATH = "/home/anthony/cmf_data/prelude_bach.wav"
 function piano(;path=PIANO_DATAPATH, freq=11025, seconds=30)
     # Load raw file
-    raw, f = WAV.wavread(PIANO_DATAPATH)
+    raw, f = WAV.wavread(path)
 
     # Downsample
-    down_rate = Integer(f / freq)
+    down_rate = Integer(round(f / freq))
     downsampled = raw[1 : down_rate : end]
 
     # Crop
