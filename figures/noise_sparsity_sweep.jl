@@ -3,6 +3,7 @@ import JLD
 
 include("../src/model.jl")
 include("../src/datasets.jl")
+include("../src/common.jl")
 
 
 # Algorithm settings
@@ -12,19 +13,23 @@ algs_under_test = [
          :label => "MULT"),
     Dict(:name => :hals,
          :opts => Dict(),
-         :label => "HALS")
+         :label => "HALS"),
+    Dict(:name => :anls,
+         :opts => Dict(),
+         :label => "ANLS"),
 ]
 
 max_itr = 100_000
-max_time = 20
+max_time = 60
 
 
 # Data settings
 N, T = 100, 500
 K, L = 3, 10
 
-noise_levels = 0 : 0.2 : 1  # 0 : 0.1 : 1
-sparsity_levels = [0.99]  # [0, 0.5, 0.9, 0.99] 
+noise_levels = 0.1 : 0.1 : 1
+sparsity_levels =  [0.5, 0.6, 0.7, 0.8, 0.85,
+                    0.9, 0.95, 0.97, 0.99, 0.999] 
 
 
 # Run tests
@@ -37,28 +42,30 @@ for noise in noise_levels
         
         println("Testing noise ", noise, " and sparsity ", sparsity)
         # Generate data
-        data = gen_synthetic(N=N, T=T, L=L, K=K, H_sparsity=sparsity, noise_scale=noise)
+        data, truth = gen_synthetic(N=N, T=T, L=L, K=K,
+                                    H_sparsity=sparsity, noise_scale=noise,
+                                    return_truth=true)
 
+        JLD.save(string("./sweep/data_", noise, "_", sparsity, ".jld"), "truth", truth) 
+        
         # Test algorithms
         for alg in algs_under_test
             results = fit_cnmf(data, L=L, K=K,
                                alg=alg[:name], alg_options=alg[:opts],
                                max_itr=max_itr, max_time=max_time)
 
+            # Save algorithm results
+            save_model(results, string("./sweep/",
+                                       alg[:label], "_",
+                                       noise, "_",
+                                       sparsity, ".h5")
+                       )
+            
             all_results[noise][sparsity][alg[:name]] = results
-            println(alg[:label], ": ", results.loss_hist[end]) 
+            println(alg[:label], ": ", compute_loss(truth, results.W, results.H)) 
         end
     end
 end
 
 # Save
 JLD.save("./noise_sparsity_sweep.jld", "all_results", all_results)
-
-# Generate plot data
-plot(xlabel="Noise scale", ylabel="Loss")
-for alg in algs_under_test
-    perf = [all_results[noise][0.99][alg[:name]].loss_hist[end]
-            for noise in noise_levels]
-    plot!(noise_levels, perf, label=alg[:name])
-end        
-gui()
