@@ -46,7 +46,7 @@ mutable struct MultMeta
 end
 
 
-function _compute_mult_W(data, W, H; bug=false)
+function _compute_mult_W(data, W, H)
     L, N, K = size(W)
     T = size(H)[2]
 
