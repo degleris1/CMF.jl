@@ -46,7 +46,7 @@ mutable struct MultMeta
 end
 
 
-function _compute_mult_W(data, W, H)
+function _compute_mult_W(data, W, H; bug=false)
     L, N, K = size(W)
     T = size(H)[2]
 
@@ -57,7 +57,7 @@ function _compute_mult_W(data, W, H)
     
     for lag = 0:(L-1)
         num[lag+1, :, :] = data[:, 1+lag:T] * shift_cols(H, lag)'
-        denom[lag+1, :, :] = data[:, 1+lag:T] * shift_cols(H, lag)'
+        denom[lag+1, :, :] = est[:, 1+lag:T] * shift_cols(H, lag)'
     end
 
     return num, denom
