@@ -13,11 +13,6 @@ const ds = Distributions
 
 # Source files.
 include("./common.jl")
-
-include("./mult.jl")
-include("./hals.jl")
-# include("./anls.jl") 
-
 include("./model.jl")
 
 include("./datasets.jl")
