@@ -1,5 +1,5 @@
 ## Scripts for model visualization ##
-import PyPlot; const plt = PyPlot
+const plt = PyPlot
 
 
 function plot_reconstruction(

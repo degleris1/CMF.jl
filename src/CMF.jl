@@ -1,6 +1,7 @@
 module CMF
 
 # Dependendies.
+import PyPlot
 using LinearAlgebra
 using HDF5
 using ImageFiltering
@@ -16,6 +17,6 @@ include("./common.jl")
 include("./model.jl")
 
 include("./datasets.jl")
-#include("./visualize.jl")
+include("./visualize.jl")
 
 end
