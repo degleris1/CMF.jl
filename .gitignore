@@ -1,3 +1,7 @@
 .ipynb_checkpoints
 *.jl~
 *.jl#
+
+# Datasets
+*.jld
+*.h5

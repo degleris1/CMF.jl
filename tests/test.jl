@@ -1,20 +1,19 @@
 using Plots
+using CMF: fit_cnmf, synthetic_sequences
 
-include("../src/model.jl")
-include("../src/datasets.jl")
 
-data = gen_synthetic(N=500, T=2000)
+data, W, H = synthetic_sequences(N=500, T=2000)
 
 plot(xlabel="Time", ylabel="Loss")
 
 alg_results = Dict()
 for (alg, kwargs, label) in [
     [:hals, Dict(), "HALS"],
-    [:mult, Dict(:l1_H=>10, :l1_W=>0.1, :l2_H=>10, :l2_W=>0.5), "MULT"],
-    [:anls, Dict(), "ANLS"],
+    [:mult, Dict(), "MULT"],
+    #[:anls, Dict(), "ANLS"],
 ]
-    results = fit_cnmf(data; L=10, K=5,
-                       alg=alg, max_itr=1000, max_time=10,
+    results = fit_cnmf(data; L=20, K=3,
+                       alg=alg, max_itr=Inf, max_time=30,
                        kwargs...
                        )
 
