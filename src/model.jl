@@ -58,6 +58,9 @@ end
 function fit_cnmf(data; L=10, K=5, alg=:mult,
                   max_itr=100, max_time=Inf,
                   l1_H=0, l2_H=0, l1_W=0, l2_W=0,
+                  check_convergence=false,
+                  tol = 1e-4,
+                  patience=3,
                   kwargs...)
 
     # Initialize
@@ -97,10 +100,36 @@ function fit_cnmf(data; L=10, K=5, alg=:mult,
         # Record time and loss
         push!(time_hist, time_hist[end] + dur)
         push!(loss_hist, loss)
+
+        # Check convergence
+        if check_convergence && converged(loss_hist, patience, tol)
+            break
+        end
     end
 
     return CNMF_results(data, W, H, time_hist, loss_hist,
                         l1_H, l2_H, l1_W, l2_W, alg)
+end
+
+"""
+Check for model convergence
+"""
+function converged(loss_hist, patience, tol)
+
+    # If we have not run for `patience` iterations,
+    # we have not converged.
+    if length(loss_hist) <= patience
+        return false
+    end
+
+    d_loss = diff(loss_hist[end-patience:end])
+
+    # Objective converged
+    if (all(abs.(d_loss) .< tol))
+        return true
+    else
+        return false
+    end
 end
 
 
