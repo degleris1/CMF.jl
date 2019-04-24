@@ -201,6 +201,50 @@ function piano(;path=PIANO_DATAPATH, freq=11025, seconds=30)
 
     # Create spectogram
     spect = DSP.spectrogram(signal, 1024, 512, window=DSP.hamming).power
+
+    # Log transform
+    logspect = log.(spect) .- minimum(log.(spect))
     
-    return spect
+    return logspect
+end
+
+
+
+"""
+Female voices
+"""
+function female_voices(;path="/home/anthony/cmf_data/test2_female3_inst_mix.wav",
+                       freq=11025)
+    return generate_logspect(path, freq)
+end
+
+
+"""
+Drums mix
+"""
+function drums_mix(;path="/home/anthony/cmf_data/test2_wdrums_inst_mix.wav",
+                   freq=11025)
+    return generate_logspect(path, freq)
+end
+
+
+function generate_logspect(path, freq)
+    # Load raw file
+    raw, f = WAV.wavread(path)
+
+    # Merge channels
+    stream = raw[:, 1] + raw[:, 2]
+
+    # Downsmaple
+    down_rate = Integer(round(f / freq))
+    downstream = stream[1 : down_rate : end]
+
+    # Create spectrogram
+    spect = DSP.spectrogram(downstream,
+                            1024, 512, window=DSP.hamming).power
+
+    # Log transform
+    logspect = log.(spect) .- minimum(log.(spect))
+
+    return logspect
 end
