@@ -74,7 +74,7 @@ function maze(;path=MAZE_DATAPATH,
                 bin_time=1e-1,
                 kernel_width=nothing,
                 normalize=false,
-                epoch="nothing")
+                epoch=nothing)
     """
     params
 
