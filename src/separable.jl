@@ -6,7 +6,7 @@ using PyPlot; plt = PyPlot
 include("./common.jl")
 
 
-function generate_separable_data(;N=100, T=250, K=3, L=8, H_sparsity=0.9, W_sparsity=0.75)
+function generate_separable_data(;N=100, T=250, K=3, L=8, H_sparsity=0.15, W_sparsity=0.75)
     # Generate W
     trueW = 100 * rand(L, N, K) .* (rand(L, N, K) .> W_sparsity)
 
@@ -16,36 +16,48 @@ function generate_separable_data(;N=100, T=250, K=3, L=8, H_sparsity=0.9, W_spar
         trueH[k, (k-1)*L+1] = 1
     end
     trueH[:, K*L+1:end] = rand(K, T-K*L) .* (rand(K, T-K*L) .> H_sparsity)
-
-    # Generate data and normalize
-    X = tensor_conv(trueW, trueH)
-    DX = diagm(0 => max.(colnorms(X), eps()))
+    trueH[:, T-L+1:end] .= 0
     
-    return X*inv(DX), trueW, trueH*inv(DX), [N, T, K, L]
+    # Generate data
+    X = tensor_conv(trueW, trueH)
+    
+    return X, trueW, trueH, [N, T, K, L]
 end
 
 
 function fit_separable_data(data, K, L)
+    # Step 0: normalize columns of X
+    DX = diagm(0 => max.(colnorms(data), eps()))
+    X = data * inv(DX)
+
     # Step 1: successive projection to locate the columns of W
-    Wo, vertices = SPA(data, K*L)
+    Wo, vertices = SPA(X, K*L)
+
+    # Step 1B: renormalize W
+    DW = DX[vertices, vertices]
+    Wo = Wo * DW
     
     # Step 2: compute unconstrained H (NMF)
-    Ho = nonneg_lsq(Wo, data, alg=:pivot, variant=:comb) 
+    Ho = nonneg_lsq(Wo, data, alg=:pivot, variant=:comb)
 
     # Step 3: group rows of H to produce convolutive H
-    H = shift_cluster(Ho, K, L)
+    H, groups = shift_cluster(Ho, K, L)
 
     # Step 4: create W based on grouping
+    W = zeros(L, N, K)
+    for k = 1:K
+        W[:, :, k] = Wo[:, groups[k]]'
+    end
     
-    return
+    return W, H
 end
 
 
 function shift_cluster(Ho, K, L)
     R, T = size(Ho)
 
+    # Step 1: compute similarity matrix
     simat = zeros(R, R)
-
     for r = 1:R
         for p = r:R
             simat[r, p] = compute_sim(Ho[:, r], Ho[:, p], L)
@@ -53,9 +65,9 @@ function shift_cluster(Ho, K, L)
         end
     end
 
+    # Step 2: compute groups
     group = [[] for k in 1:K]
     ungrouped = collect(1:L*K)
-
     for k in 1:K
         # Push a remaining element
         push!(group[k], pop!(ungrouped))
@@ -69,8 +81,14 @@ function shift_cluster(Ho, K, L)
             push!(group[k], ungrouped[i])
             deleteat!(ungrouped, i)
         end
+
+        # Sort within group by starting time
+        starts = [findfirst(Ho[group[k][i], :] .>= eps()^(1/2)) for i = 1:L]
+        println(group[k], starts)
+        group[k] = group[k][sort(collect(1:L), by=j->starts[j])]
     end
 
+    
     reps = [group[k][1] for k in 1:K]
     
     return Ho[reps, :], group
@@ -88,7 +106,7 @@ function compute_sim(h1, h2, L)
     for l = 1:L-1
         best_sim = max(
             best_sim,
-            abs(angle(h1[1:T-l], h2[1+l:T])),
+            abs(angle(h1[1:T-l], h2[1+l:T])),  # Shift h1 right
             abs(angle(h1[1+l:T], h2[1:T-l]))
         )
     end
@@ -120,15 +138,14 @@ angle(a, b) = a'b / (norm(a) * norm(b))
 
 data, tW, tH, (N, T, K, L) = generate_separable_data()
 
-W, vertices = SPA(data, K*L)
-
-H = nonneg_lsq(W, data, alg=:pivot, variant=:comb)
-newH, group = shift_cluster(H, K, L)
+W, H = fit_separable_data(data, K, L)
 
 plt.figure()
-plt.imshow(newH, aspect="auto")
+plt.imshow(H, aspect="auto")
+plt.title("Fit")
 plt.show()
 
 plt.figure()
 plt.imshow(tH, aspect="auto")
+plt.title("Truth")
 plt.show()
