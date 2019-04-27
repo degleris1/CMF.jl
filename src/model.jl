@@ -40,7 +40,8 @@ function sortperm(r::CNMF_results)
     # For each unit, compute the largest weight across
     # components.
     sum_over_lags = dropdims(sum(r.W, dims=1), dims=1)
-    max_component = argmax.(eachrow(sum_over_lags))
+    rows = [view(sum_over_lags, i, :) for i in axes(sum_over_lags, 1)]
+    max_component = argmax.(rows)
 
     # For each unit, compute the largest weight across
     # lags (within largest component).
