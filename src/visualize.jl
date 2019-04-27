@@ -34,7 +34,7 @@ function plot_Ws(
         a.imshow(transpose(W[:, idx, k]), aspect="auto")
     end
 
-    if ~isnothing(trueW)
+    if !(trueW === nothing)
         fig2, ax2 = plt.subplots(1, num_components(r))
         for (k, a) in enumerate(ax2)
             a.imshow(transpose(trueW[:, idx, k]), aspect="auto")
