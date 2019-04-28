@@ -1,5 +1,5 @@
 # PLOT SETTINGS
-textwidth = 469.75
+doc_textwidth = 469.75
 fontsize = 10
 ticksize = 8
 
