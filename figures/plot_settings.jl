@@ -24,13 +24,16 @@ plt.rc("ytick", labelsize=ticksize)
             Width in pts
     fraction: float
             Fraction of the width which you wish the figure to occupy
-
+    aspect: float or string
+            If provided as a string, must be equal to the default, "golden".
+            This sets the aspect ratio to be the golden ratio.
+            Otherwise, this should be a float specifying the aspect ratio.
     Returns
     -------
     fig_dim: tuple
             Dimensions of figure in inches
 """
-function set_size(width; fraction=1)
+function set_size(width; fraction=1, aspect="golden")
     # Width of figure
     fig_width_pt = width * fraction
 
@@ -42,8 +45,13 @@ function set_size(width; fraction=1)
 
     # Figure width in inches
     fig_width_in = fig_width_pt * inches_per_pt
-    # Figure height in inches
-    fig_height_in = fig_width_in * golden_ratio
+
+    if aspect == "golden"
+        # Figure height in inches
+        fig_height_in = fig_width_in * golden_ratio
+    else
+        fig_height_in = fig_width_in * aspect
+    end
 
     fig_dim = (fig_width_in, fig_height_in)
 
