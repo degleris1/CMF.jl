@@ -6,7 +6,6 @@ in a directory adjacent to the cmf.jl directory.
 """
 
 # Import 
-push!(LOAD_PATH, "../../")
 import NonNegLeastSquares
 using LinearAlgebra
 include("./common.jl")
@@ -15,7 +14,7 @@ include("./common.jl")
 """
 Main update rule
 """
-function update!(data, W, H, meta; kwargs...)
+function update!(data, W, H, meta; variant=nothing, kwargs...)
     if (meta == nothing)
         meta = ANLSmeta(data, W, H)
     end
@@ -25,7 +24,7 @@ function update!(data, W, H, meta; kwargs...)
     meta.resids = compute_resids(data, W, H)
 
     # H update
-    _update_H!(data, W, H, meta)
+    _update_H!(W, H, meta)
 
     return norm(meta.resids) / meta.data_norm, meta
 end
@@ -64,10 +63,50 @@ end
 """
 Perform H update a single column at a time
 """
-function _update_H!(data, W, H, meta)
+function _update_H!(W, H, meta)
+    N, T, K, L = unpack_dims(W, H)
+    
+    for t in 1:T  
+        last = min(t+L-1, T)
+        block_size = last - t + 1
+        
+        # Remove contribution to residual
+        for k = 1:K
+            meta.resids[:, t:last] -= H[k, t] * W[1:block_size, :, k]'
+        end
+
+        unfolded_W = _unfold_W(W)[1:block_size*N, :]
+        b = vec(meta.resids[:, t:last])
+        
+        # Update one column of H
+        H[:,t] = NonNegLeastSquares.nonneg_lsq(unfolded_W, -b, alg=:pivot, variant=:comb)
+        
+        # Update residual
+        for k = 1:K
+            meta.resids[:, t:last] += H[k, t] * W[1:block_size, :, k]'
+        end
+    end
+end
+
+
+
+
+"""
+Update several columns of H at once.
+"""
+function _block_update_H!(data, W, H, meta)
     K, T = size(H)
     L, N, K = size(W)
 
+
+
+    for l = 1:L
+        inds = 1:L:T-L
+        
+
+    end
+
+    
     for t in 1:T
         last = min(t+L-1, T)
         block_size = last - t + 1
@@ -89,8 +128,6 @@ function _update_H!(data, W, H, meta)
         end
     end
 end
-
-
 
 function _unfold_W(W)
     L, N, K = size(W)

@@ -66,8 +66,8 @@ function fit_cnmf(data; L=10, K=5, alg=:mult,
 
     # Initialize
     W, H = init_rand(data, L, K)
-    W = get(kwargs, :initW, W)
-    H = get(kwargs, :initH, H)
+    W = deepcopy(get(kwargs, :initW, W))
+    H = deepcopy(get(kwargs, :initH, H))
     
     meta = nothing
     
@@ -88,14 +88,9 @@ function fit_cnmf(data; L=10, K=5, alg=:mult,
              l2_H == 0 &&
              l1_W == 0 &&
              l2_W == 0) || error("Regularization not supported with ANLS")
-             loss, meta = ALGORITHMS[alg].update!(data, W, H, meta;
-                                             kwargs...)
-        else
-            loss, meta = ALGORITHMS[alg].update!(data, W, H, meta;
-                                                 l1_H=l1_H, l2_H=l2_H,
-                                                 l1_W=l1_W, l2_W=l2_W,
-                                                 kwargs...)
         end
+        
+        loss, meta = ALGORITHMS[alg].update!(data, W, H, meta; kwargs...)
         dur = time() - t0
         
         # Record time and loss
