@@ -1,22 +1,20 @@
-using Plots
+using PyPlot; plt = PyPlot
 using Revise
 using CMF: fit_cnmf, synthetic_sequences, init_rand
 
 K, L = 3, 10
-data, W, H = synthetic_sequences(N=100, T=250, K=K, L=L)
+data, W, H = synthetic_sequences(N=250, T=2500, K=K, L=L)
 initW, initH = init_rand(data, L, K)
 
-plot(xlabel="Time", ylabel="Loss")
 
 alg_results = Dict()
 settings = [
     [:hals, Dict(), "HALS"],
     #[:mult, Dict(), "MULT"],
-    [:anls, Dict(), "ANLS"],
-    [:anls, Dict(:variant => :cache), "Cached ANLS"],
-    [:anls, Dict(:variant => :pivot), "Pivot ANLS"],
+    [:anls, Dict(), "ANLS"]
 ]
 
+plt.figure()
 for (alg, kwargs, label) in settings
     results = fit_cnmf(data; L=L, K=K,
                        alg=alg, max_itr=Inf, max_time=5,
@@ -24,12 +22,12 @@ for (alg, kwargs, label) in settings
                        kwargs...
                        )
 
-    plot!(results.time_hist, results.loss_hist, label=label)
-    scatter!(results.time_hist, results.loss_hist, markersize=1, label="")
-
+    plt.plot(results.time_hist, results.loss_hist, label=label, marker=".")
     alg_results[alg] = results
 end
+plt.legend()
+plt.xlabel("Time (seconds)")
+plt.ylabel("Loss")
 
-savefig("cnmf_test.png")
-gui()
+plt.savefig("cnmf_test.png")
 ;
