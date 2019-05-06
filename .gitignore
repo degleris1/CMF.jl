@@ -5,3 +5,7 @@
 # Datasets
 *.jld
 *.h5
+
+# Figures
+*.png
+*.pdf
