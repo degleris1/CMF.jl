@@ -6,12 +6,13 @@ ticksize = 8
 plt.matplotlib.pyplot.style.use("seaborn")
 plt.rc("text", usetex=true)
 plt.rc("font", family="serif", size=fontsize)
-plt.rc("lines", linewidth=3)
+plt.rc("lines", linewidth=1.5)
 plt.rc("figure", titlesize=fontsize)
 plt.rc("axes", labelsize=fontsize, titlesize=fontsize)
 plt.rc("legend", fontsize=ticksize)
 plt.rc("xtick", labelsize=ticksize)
-plt.rc("ytick", labelsize=ticksize)
+plt.rc("ytick", labelsize=ticksize) 
+plt.rc("lines", linestyle="-.")
 
 
 """
