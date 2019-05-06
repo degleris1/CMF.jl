@@ -1,11 +1,10 @@
 using NonNegLeastSquares
 using LinearAlgebra
-using PyPlot; plt = PyPlot
-
 
 include("./common.jl")
 
 
+""" Generate separable data. """
 function generate_separable_data(;N=23, T=53, K=3, L=5, H_sparsity=0.8, W_sparsity=0.75)
     # Generate W
     trueW = 10 * rand(L, N, K) .* (rand(L, N, K) .> W_sparsity)
@@ -24,6 +23,7 @@ function generate_separable_data(;N=23, T=53, K=3, L=5, H_sparsity=0.8, W_sparsi
 end
 
 
+""" Fit using the LCS Algorithm. """
 function fit_conv_separable(data, K, L)
     # Step 1: successive projection to locate the columns of W
     Wo, vertices = SPA(data, K*L)
@@ -44,6 +44,7 @@ function fit_conv_separable(data, K, L)
 end
 
 
+""" Cluster based on shift distance. """
 function shift_cluster(Ho, K, L)
     R, T = size(Ho)
 
@@ -158,24 +159,3 @@ function findsetmax(x; thresh=eps()^(1/2))
             
     return maxval, set
 end
-
-
-
-"""
-Test
-"""
-data, tW, tH, (N, T, K, L) = generate_separable_data()
-
-W, H = fit_conv_separable(data, K, L)
-
-
-
-plt.figure()
-plt.imshow(H, aspect="auto")
-plt.title("Fit")
-plt.show()
-
-plt.figure()
-plt.imshow(tH, aspect="auto")
-plt.title("Truth")
-plt.show()
