@@ -1,28 +1,33 @@
-using Plots
-using CMF: fit_cnmf, synthetic_sequences
+using PyPlot; plt = PyPlot
+using Revise
+using CMF: fit_cnmf, synthetic_sequences, init_rand
 
+K, L = 3, 10
+data, W, H = synthetic_sequences(N=250, T=2500, K=K, L=L)
+initW, initH = init_rand(data, L, K)
 
-data, W, H = synthetic_sequences(N=500, T=2000)
-
-plot(xlabel="Time", ylabel="Loss")
 
 alg_results = Dict()
-for (alg, kwargs, label) in [
+settings = [
     [:hals, Dict(), "HALS"],
-    [:mult, Dict(), "MULT"],
-    #[:anls, Dict(), "ANLS"],
+    #[:mult, Dict(), "MULT"],
+    [:anls, Dict(), "ANLS"]
 ]
-    results = fit_cnmf(data; L=20, K=3,
-                       alg=alg, max_itr=Inf, max_time=30,
+
+plt.figure()
+for (alg, kwargs, label) in settings
+    results = fit_cnmf(data; L=L, K=K,
+                       alg=alg, max_itr=Inf, max_time=5,
+                       initW=initW, initH=initH,
                        kwargs...
                        )
 
-    plot!(results.time_hist, results.loss_hist, label=label)
-    scatter!(results.time_hist, results.loss_hist, markersize=1, label="")
-
+    plt.plot(results.time_hist, results.loss_hist, label=label, marker=".")
     alg_results[alg] = results
 end
+plt.legend()
+plt.xlabel("Time (seconds)")
+plt.ylabel("Loss")
 
-savefig("cnmf_alg_comparison.png")
-gui()
+plt.savefig("cnmf_test.png")
 ;

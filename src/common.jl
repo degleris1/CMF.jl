@@ -67,3 +67,11 @@ function shift_and_stack(H, L)
 
     return H_stacked
 end
+
+
+function unpack_dims(W, H)
+    L, N, K = size(W)
+    T = size(H, 2)
+
+    return N, T, K, L
+end
