@@ -1,5 +1,7 @@
 using NonNegLeastSquares
+using Combinatorics
 using LinearAlgebra
+import PyPlot; plt = PyPlot
 
 include("./common.jl")
 
@@ -24,7 +26,7 @@ end
 
 
 """ Fit using the LCS Algorithm. """
-function fit_conv_separable(data, K, L)
+function fit_conv_separable(data, K, L; verbose=true)
     # Step 1: successive projection to locate the columns of W
     Wo, vertices = SPA(data, K*L)
 
@@ -32,7 +34,7 @@ function fit_conv_separable(data, K, L)
     Ho = nonneg_lsq(Wo, data, alg=:pivot, variant=:comb)
     
     # Step 3: group and sort rows of H to produce convolutive H
-    H, groups = shift_cluster(Ho, K, L)
+    H, groups = shift_cluster(Ho, K, L, verbose)
 
     # Create W based on grouping
     W = zeros(L, N, K)
@@ -45,7 +47,7 @@ end
 
 
 """ Cluster based on shift distance. """
-function shift_cluster(Ho, K, L)
+function shift_cluster(Ho, K, L, verbose)
     R, T = size(Ho)
 
     # Step 1: compute distance matrix
@@ -55,6 +57,14 @@ function shift_cluster(Ho, K, L)
             dmat[r, p] = shift_dist(Ho[r, :], Ho[p, :], L)
             dmat[p, r] = dmat[r, p]
         end
+    end
+
+    if (verbose)
+        plt.figure()
+        plt.imshow(dmat)
+        plt.colorbar()
+        plt.title("Euclidean distances")
+        plt.show()
     end
     
     # Step 2: compute groups
@@ -127,18 +137,23 @@ function SPA(data, K)
 end
 
 
+"""
+Utilities
+"""
+
+
 """ Compute the norm of each column. """
 colnorms(A, p=2) = [norm(A[:, t], p) for t = 1:size(A, 2)]
+
+
+""" Compute the Euclidean distance between a and b. """
+euclid_dist(a, b) = norm(a - b)
 
 
 """ Normalization matrix. """
 function diagscale(c)
     return diagm(0 => c + ones(size(c)) .* (c .< eps()))
 end
-
-
-""" Compute the Euclidean distance between a and b. """
-euclid_dist(a, b) = norm(a - b)
 
 
 """ Return set of maximal values. """
@@ -158,4 +173,11 @@ function findsetmax(x; thresh=eps()^(1/2))
     end
             
     return maxval, set
+end
+
+
+function permute_factors(trueH, estH)
+    permset = collect(permutations(1:size(H, 1)))
+    resid, i = findmin([norm(estH[p, :] - trueH) for p in permset])
+    return permset[i]
 end
