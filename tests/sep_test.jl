@@ -2,14 +2,18 @@ using PyPlot; plt = PyPlot
 
 include("../src/separable.jl")
 
-
+# Generate data
 data, tW, tH, (N, T, K, L) = generate_separable_data()
 
-W, H = fit_conv_separable(data, K, L)
+# Add noise
+noisy_data = data + (0.01 * rand(N, T))
 
+
+W, H = fit_conv_separable(noisy_data, K, L)
+perm = permute_factors(tH, H)
 
 plt.figure()
-plt.imshow(H, aspect="auto")
+plt.imshow(H[perm, :], aspect="auto")
 plt.title("Fit")
 plt.show()
 
