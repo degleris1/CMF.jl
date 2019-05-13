@@ -12,20 +12,20 @@ include("./common.jl")
 """
 Main update rule
 """
-function update!(data, W, H, meta; variant=:cache, block=false, kwargs...)
+function update!(data, W, H, meta; variant=nothing, kwargs...)
     if (meta == nothing)
         meta = ANLSmeta(data, W, H)
     end
 
     # W update
-    _update_W!(data, W, H, variant=variant)
+    _update_W!(data, W, H)
     meta.resids = compute_resids(data, W, H)
 
     # H update
-    if (block)
-        _block_update_H!(W, H, meta, variant=variant)
+    if (variant == :block)
+        _block_update_H!(W, H, meta)
     else
-        _update_H!(W, H, meta, variant=variant)
+        _update_H!(W, H, meta)
     end
     
     return norm(meta.resids) / meta.data_norm, meta
@@ -51,15 +51,11 @@ end
 """
 This is just a single NNLS solve using the unfolded H matrix.
 """
-function _update_W!(data, W, H; variant=:cache)
+function _update_W!(data, W, H)
     L,N,K = size(W)
     H_unfold = shift_and_stack(H, L)
 
-    if (variant == nothing)
-        W_unfold = nonneg_lsq(t(H_unfold), t(data), alg=:pivot)
-    else
-        W_unfold = nonneg_lsq(t(H_unfold), t(data), alg=:pivot, variant=variant)
-    end
+    W_unfold = nonneg_lsq(t(H_unfold), t(data), alg=:pivot, variant=:comb)
     
     W[:,:,:] = fold_W(t(W_unfold), L, N, K)
 end
@@ -68,7 +64,7 @@ end
 """
 Perform H update a single column at a time
 """
-function _update_H!(W, H, meta; variant=:cache, cols=nothing)
+function _update_H!(W, H, meta; cols=nothing)
     N, T, K, L = unpack_dims(W, H)
 
     if (cols == nothing)
@@ -90,11 +86,7 @@ function _update_H!(W, H, meta; variant=:cache, cols=nothing)
         b = vec(meta.resids[:, t:last])
         
         # Update one column of H
-        if (variant == nothing)
-            H[:,t] = nonneg_lsq(unfolded_W, -b, alg=:pivot)
-        else
-            H[:,t] = nonneg_lsq(unfolded_W, -b, alg=:pivot, variant=variant)
-        end
+        H[:,t] = nonneg_lsq(unfolded_W, -b, alg=:pivot, variant=:cache)
         
         # Update residual
         for k = 1:K
@@ -108,7 +100,7 @@ end
 """
 Update several columns of H at once.
 """
-function _block_update_H!(W, H, meta; variant=variant)
+function _block_update_H!(W, H, meta)
     K, T = size(H)
     L, N, K = size(W)
 
@@ -131,13 +123,8 @@ function _block_update_H!(W, H, meta; variant=variant)
         end
 
         # Update block of H
-        if (variant == nothing)
-            H[:, inds] = NonNegLeastSquares.nonneg_lsq(unfolded_W, -B,
-                                                   alg=:pivot)
-        else
-            H[:, inds] = NonNegLeastSquares.nonneg_lsq(unfolded_W, -B,
-                                                   alg=:pivot, variant=variant)
-        end
+        H[:, inds] = NonNegLeastSquares.nonneg_lsq(unfolded_W, -B,
+                                                   alg=:pivot, variant=:comb)
         
         # Update residual
         for k = 1:K
@@ -147,7 +134,7 @@ function _block_update_H!(W, H, meta; variant=variant)
         end
     end
 
-    _update_H!(W, H, meta; variant=variant, cols=T-L+2:T)
+    _update_H!(W, H, meta; cols=T-L+2:T)
 end
 
 
