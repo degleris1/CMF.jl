@@ -54,7 +54,7 @@ function shift_cluster(Ho, K, L, verbose)
     dmat = zeros(R, R)
     for r = 1:R
         for p = r:R
-            dmat[r, p] = shift_dist(Ho[r, :], Ho[p, :], L)
+            dmat[r, p] = shift_cos(Ho[r, :], Ho[p, :], L)
             dmat[p, r] = dmat[r, p]
         end
     end
@@ -63,7 +63,7 @@ function shift_cluster(Ho, K, L, verbose)
         plt.figure()
         plt.imshow(dmat)
         plt.colorbar()
-        plt.title("Euclidean distances")
+        plt.title("Angles")
         plt.show()
     end
     
@@ -77,7 +77,7 @@ function shift_cluster(Ho, K, L, verbose)
         while (length(group[k]) < L)
             # Add the element closest to the group
             dists = sum(dmat[group[k], ungrouped], dims=1)
-            _, i = findmin(dists)
+            _, i = findmax(dists)
             i = i[2]
 
             push!(group[k], ungrouped[i])
@@ -94,6 +94,20 @@ function shift_cluster(Ho, K, L, verbose)
 end
 
 
+""" Shift cosine angle between h1 and h2. """
+function shift_cos(h1, h2, L)
+    T = length(h1)
+
+    maxcos = cos(h1, h2)
+    for l in 1:L-1
+        maxcos = max(maxcos,
+                     cos(h1[1:T-l], h2[1+l:T]),  # Shift h1 to right
+                     cos(h2[1+l:T], h2[1:T-l]))  # Shift h2 to right
+    end
+    return maxcos
+end
+
+
 """ Shift distance between h1 and h2. """
 function shift_dist(h1, h2, L; dist=euclid_dist)
     T = length(h1)
@@ -104,7 +118,6 @@ function shift_dist(h1, h2, L; dist=euclid_dist)
                       dist(h1[1:T-l], h2[1+l:T]),  # Shift h1 right
                       dist(h2[1+l:T], h2[1:T-l]))  # Shift h2 right
     end
-
     return mindist
 end
 
@@ -148,6 +161,10 @@ colnorms(A, p=2) = [norm(A[:, t], p) for t = 1:size(A, 2)]
 
 """ Compute the Euclidean distance between a and b. """
 euclid_dist(a, b) = norm(a - b)
+
+
+""" Cosine of the angle between two vectors. """
+cos(a, b) = a'b / (norm(a) * norm(b))
 
 
 """ Normalization matrix. """
