@@ -4,45 +4,112 @@ using LinearAlgebra
 import PyPlot; plt = PyPlot
 
 include("./common.jl")
-
+ALPHA = collect("ABCDEFGHIJK")
 
 """ Generate separable data. """
-function generate_separable_data(;N=23, T=53, K=3, L=5, H_sparsity=0.8, W_sparsity=0.75)
+function generate_separable_data(;N=23, T=100, K=3, L=5, H_sparsity=0.5, W_sparsity=0.75)
     # Generate W
-    trueW = 10 * rand(L, N, K) .* (rand(L, N, K) .> W_sparsity)
+    W = 10 * rand(L, N, K) .* (rand(L, N, K) .> W_sparsity)
     
     # Generate H
-    trueH = zeros(K, T)
-    for k = 1:K
-        trueH[k, (k-1)*L+1] = 1
+    H = rand(K, T) .* (rand(K, T) .> H_sparsity)
+
+    # Add separable factors
+    if (T < 3*K*L)
+        println("T too small")
+        return nothing
     end
-    trueH[:, K*L+1:end] = rand(K, T-K*L) .* (rand(K, T-K*L) .> H_sparsity)
+
+    hL = floor(Int, L/2)
+    times = collect(1:T-L)
+    free = (times .!= 0)
+    
+    for k = 1:K
+        for (down, up) in [(-L, hL), (-hL, L)]  # Left and ride side of sequence 
+            t = rand(times[free])
+            t1 = max(1, t+down)
+            t2 = min(T, t+up)
+
+            H[:, t1:t2] .= 0
+            H[k, t] = 5 + rand()
+
+            free[t1:min(t2,T-L)] .= false
+        end
+    end
+
     
     # Generate data
-    X = tensor_conv(trueW, trueH)
+    X = tensor_conv(W, H)
     
-    return X, trueW, trueH, [N, T, K, L]
+    return X, W, H, [N, T, K, L]
+end
+
+
+function is_separable(H, L)
+    K, T = size(H)
+    
+    # Construct block H
+    G = zeros(K*L, T)
+    for l = 0:L-1
+        G[l*K+1:(l+1)*K, l+1:end] = H[:, 1:T-l]
+    end
+
+    # Check if G contains the permuted scaled identity
+    for r = 1:K*L
+        e_r = unitvec(K*L, r)
+        found = false
+
+        for t = 1:T
+            matches = sum((G[:, t] .!= 0) .== (e_r .!= 0))
+            if sum(matches) == K*L
+                found = true
+                break
+            end
+        end
+
+        if (!found)
+            return false
+        else
+            println("Found ", r)
+        end
+    end
+    
+    return true
 end
 
 
 """ Fit using the LCS Algorithm. """
 function fit_conv_separable(data, K, L; verbose=true)
     # Step 1: successive projection to locate the columns of W
-    Wo, vertices = SPA(data, K*L)
+    V, vertices = SPA(data, K*L)
 
     # Step 2: compute unconstrained H (NMF)
-    Ho = nonneg_lsq(Wo, data, alg=:pivot, variant=:comb)
+    G = nonneg_lsq(V, data, alg=:pivot, variant=:comb)
     
-    # Step 3: group and sort rows of H to produce convolutive H
-    H, groups = shift_cluster(Ho, K, L, verbose)
+    # Step 3: group rows of H to produce convolutive H
+    groups = shift_cluster(G, K, L, verbose)
 
-    # Create W based on grouping
+    # Step 4: sort rows of H
+    for k = 1:K
+        groups[k] = sort_group(groups[k], G)
+    end
+        
+    # Create W, H based on grouping
     W = zeros(L, N, K)
     for k = 1:K
-        W[:, :, k] = Wo[:, groups[k]]'
+        W[:, :, k] = V[:, groups[k]]'
     end
+
+    reps = [groups[k][1] for k in 1:K]
+    H = G[reps, :]
     
     return W, H
+end
+
+
+function sort_group(group, G)
+    starts = [findfirst(G[group[i], :] .>= eps()^(1/2)) for i = 1:L]
+    return group[sort(collect(1:L), by=j->starts[j])]
 end
 
 
@@ -58,39 +125,62 @@ function shift_cluster(Ho, K, L, verbose)
             dmat[p, r] = dmat[r, p]
         end
     end
-
-    if (verbose)
-        plt.figure()
-        plt.imshow(dmat)
-        plt.colorbar()
-        plt.title("Angles")
-        plt.show()
-    end
     
     # Step 2: compute groups
-    group = [[] for k in 1:K]
-    ungrouped = collect(1:L*K)
-    for k in 1:K
-        # Push a remaining element
-        push!(group[k], pop!(ungrouped))
+    groups = find_groups(dmat, K, L, Ho)
 
-        while (length(group[k]) < L)
-            # Add the element closest to the group
-            dists = sum(dmat[group[k], ungrouped], dims=1)
-            _, i = findmax(dists)
-            i = i[2]
+    # Plot heatmap of similarity matrix and grouping
+    if (verbose)
+        fig, ax = plt.subplots()
+        im = ax.imshow(dmat)
+        ax.set_yticks(0:R-1)
+        ax.set_yticklabels(invert_grouping(groups, R, K))
 
-            push!(group[k], ungrouped[i])
-            deleteat!(ungrouped, i)
-        end
+        cbar = ax.figure.colorbar(im, ax=ax)
+        plt.title("Angles")
 
-        # Sort within group by starting time
-        starts = [findfirst(Ho[group[k][i], :] .>= eps()^(1/2)) for i = 1:L]
-        group[k] = group[k][sort(collect(1:L), by=j->starts[j])]
+        plt.show()
     end
 
-    reps = [group[k][1] for k in 1:K]
-    return Ho[reps, :], group
+    return groups
+end
+
+
+function invert_grouping(groups, R, K)
+    labels = []
+
+    for r in 1:R
+        for k in 1:K
+            if (r in groups[k])
+                push!(labels, k)
+            end
+        end
+    end
+    
+    return labels
+end
+
+
+function find_groups(dmat, K, L, Ho)
+    groups = [[] for k in 1:K]
+    ungrouped = collect(1:L*K)
+    
+    for k in 1:K
+        # Push a remaining element
+        push!(groups[k], pop!(ungrouped))
+
+        while (length(groups[k]) < L)
+            # Add the element closest to the group
+            sims = sum(dmat[groups[k], ungrouped], dims=1)
+            _, i = findmax(sims)
+            i = i[2]
+
+            push!(groups[k], ungrouped[i])
+            deleteat!(ungrouped, i)
+        end
+    end
+
+    return groups
 end
 
 
@@ -98,11 +188,11 @@ end
 function shift_cos(h1, h2, L)
     T = length(h1)
 
-    maxcos = cos(h1, h2)
-    for l in 1:L-1
-        maxcos = max(maxcos,
-                     cos(h1[1:T-l], h2[1+l:T]),  # Shift h1 to right
-                     cos(h2[1+l:T], h2[1:T-l]))  # Shift h2 to right
+    maxcos = 0
+    for l in 0:L-1
+        maxcos = max(maxcos, cosL(h1, h2, l))
+#                     cos(h1[1:T-l], h2[1+l:T]),  # Shift h1 to right
+#                     cos(h2[1+l:T], h2[1:T-l]))  # Shift h2 to right
     end
     return maxcos
 end
@@ -163,6 +253,11 @@ colnorms(A, p=2) = [norm(A[:, t], p) for t = 1:size(A, 2)]
 euclid_dist(a, b) = norm(a - b)
 
 
+""" Cosine of the angle between two shifted vectors. """
+cosL(a, b, l) = max((a[1:end-l]'b[1+l:end] / (norm(a[1:end-l]) * norm(b))),  # Shift a
+                    (a[1+l:end]'b[1:end-l] / (norm(a) * norm(b[1:end-l]))))
+
+
 """ Cosine of the angle between two vectors. """
 cos(a, b) = a'b / (norm(a) * norm(b))
 
@@ -170,6 +265,14 @@ cos(a, b) = a'b / (norm(a) * norm(b))
 """ Normalization matrix. """
 function diagscale(c)
     return diagm(0 => c + ones(size(c)) .* (c .< eps()))
+end
+
+
+""" Unit vector. """
+function unitvec(n, i)
+    e = zeros(n)
+    e[i] = 1
+    return e
 end
 
 
@@ -194,7 +297,17 @@ end
 
 
 function permute_factors(trueH, estH)
-    permset = collect(permutations(1:size(H, 1)))
+    # Normalize rows
+    trueH = row_normalize(trueH)
+    estH = row_normalize(estH)
+
+    # Find permutation minimizing MSE
+    permset = collect(permutations(1:size(H, 1)))     
     resid, i = findmin([norm(estH[p, :] - trueH) for p in permset])
     return permset[i]
+end
+
+
+function row_normalize(H)
+    return inv(diagscale(colnorms(H', 1))) * H
 end
