@@ -1,87 +1,19 @@
+module Separable
+
 using NonNegLeastSquares
 using Combinatorics
 using LinearAlgebra
 import PyPlot; plt = PyPlot
 
 include("./common.jl")
-ALPHA = collect("ABCDEFGHIJK")
-
-""" Generate separable data. """
-function generate_separable_data(;N=23, T=100, K=3, L=5, H_sparsity=0.5, W_sparsity=0.75)
-    # Generate W
-    W = 10 * rand(L, N, K) .* (rand(L, N, K) .> W_sparsity)
-    
-    # Generate H
-    H = rand(K, T) .* (rand(K, T) .> H_sparsity)
-
-    # Add separable factors
-    if (T < 3*K*L)
-        println("T too small")
-        return nothing
-    end
-
-    hL = floor(Int, L/2)
-    times = collect(1:T-L)
-    free = (times .!= 0)
-    
-    for k = 1:K
-        for (down, up) in [(-L, hL), (-hL, L)]  # Left and ride side of sequence 
-            t = rand(times[free])
-            t1 = max(1, t+down)
-            t2 = min(T, t+up)
-
-            H[:, t1:t2] .= 0
-            H[k, t] = 5 + rand()
-
-            free[t1:min(t2,T-L)] .= false
-        end
-    end
-
-    
-    # Generate data
-    X = tensor_conv(W, H)
-    
-    return X, W, H, [N, T, K, L]
-end
-
-
-function is_separable(H, L)
-    K, T = size(H)
-    
-    # Construct block H
-    G = zeros(K*L, T)
-    for l = 0:L-1
-        G[l*K+1:(l+1)*K, l+1:end] = H[:, 1:T-l]
-    end
-
-    # Check if G contains the permuted scaled identity
-    for r = 1:K*L
-        e_r = unitvec(K*L, r)
-        found = false
-
-        for t = 1:T
-            matches = sum((G[:, t] .!= 0) .== (e_r .!= 0))
-            if sum(matches) == K*L
-                found = true
-                break
-            end
-        end
-
-        if (!found)
-            return false
-        else
-            println("Found ", r)
-        end
-    end
-    
-    return true
-end
 
 
 """ Fit using the LCS Algorithm. """
-function fit_conv_separable(data, K, L; verbose=true)
+function fit_conv_separable(data, K, L; thresh=0, verbose=false)
+    N, T = size(data)
+
     # Step 1: successive projection to locate the columns of W
-    V, vertices = SPA(data, K*L)
+    V, vertices = SPA(data, K*L, thresh=thresh)
 
     # Step 2: compute unconstrained H (NMF)
     G = nonneg_lsq(V, data, alg=:pivot, variant=:comb)
@@ -107,10 +39,53 @@ function fit_conv_separable(data, K, L; verbose=true)
 end
 
 
+"""
+SORT STEP
+"""
+
+
+""" Sort rows of G witin some group. """
 function sort_group(group, G)
-    starts = [findfirst(G[group[i], :] .>= eps()^(1/2)) for i = 1:L]
-    return group[sort(collect(1:L), by=j->starts[j])]
+    G_gr = G[group, :]
+    L = length(group)
+
+    M = zeros(L, L)
+    for i = 1:L
+        for j = 1:L
+            M[i, j] = arg_shift_max(G_gr[i, :], G_gr[j, :], L)
+        end
+    end
+
+    weight = sum(M, dims=2)    
+    return group[sort(collect(1:L), by=j->-weight[j])]
 end
+
+
+function arg_shift_max(h1, h2, L)
+    argmax = nothing
+    max = 0
+
+    for l in 0:L-1
+        left = cosL(h1, h2, l, "a")
+        right = cosL(h1, h2, l, "b")
+
+        if (left > max)
+            max = left
+            argmax = l
+        end
+        if (right > max)
+            max = right
+            argmax = -l
+        end
+    end
+
+    return argmax
+end
+
+
+"""
+CLUSTER STEP
+"""
 
 
 """ Cluster based on shift distance. """
@@ -184,39 +159,25 @@ function find_groups(dmat, K, L, Ho)
 end
 
 
-""" Shift cosine angle between h1 and h2. """
-function shift_cos(h1, h2, L)
-    T = length(h1)
 
-    maxcos = 0
-    for l in 0:L-1
-        maxcos = max(maxcos, cosL(h1, h2, l))
-#                     cos(h1[1:T-l], h2[1+l:T]),  # Shift h1 to right
-#                     cos(h2[1+l:T], h2[1:T-l]))  # Shift h2 to right
-    end
-    return maxcos
-end
-
-
-""" Shift distance between h1 and h2. """
-function shift_dist(h1, h2, L; dist=euclid_dist)
-    T = length(h1)
-
-    mindist = dist(h1, h2)
-    for l in 1:L-1
-        mindist = min(mindist,
-                      dist(h1[1:T-l], h2[1+l:T]),  # Shift h1 right
-                      dist(h2[1+l:T], h2[1:T-l]))  # Shift h2 right
-    end
-    return mindist
-end
+"""
+LOCATE STEP
+"""
 
 
 """ Successive projection algorithm. """
-function SPA(data, K)
-    coldata = colnorms(data)
-    DX = diagscale(colnorms(data, 1))
+function SPA(data, K; thresh=0)
+    col1 = colnorms(data, 1)
+    col2 = colnorms(data, 2)
+    DX = diagscale(col1)
     X = data * inv(DX)
+
+    # Eliminate
+    for j in 1:size(data, 2)
+        if (col1[j] < tresh)
+            X[:, j] .= 0
+        end
+    end
     
     vertices = []
     resid = X
@@ -227,7 +188,7 @@ function SPA(data, K)
         if (length(jset) == 1)
             j = jset[1]
         else  # Break ties
-            _, k = findmax(coldata[jset])
+            _, k = findmax(col2[jset])
             j = jset[k]
         end
         push!(vertices, j)
@@ -241,7 +202,7 @@ end
 
 
 """
-Utilities
+HELPER FUNCTIONS
 """
 
 
@@ -253,13 +214,33 @@ colnorms(A, p=2) = [norm(A[:, t], p) for t = 1:size(A, 2)]
 euclid_dist(a, b) = norm(a - b)
 
 
-""" Cosine of the angle between two shifted vectors. """
-cosL(a, b, l) = max((a[1:end-l]'b[1+l:end] / (norm(a[1:end-l]) * norm(b))),  # Shift a
-                    (a[1+l:end]'b[1:end-l] / (norm(a) * norm(b[1:end-l]))))
-
-
 """ Cosine of the angle between two vectors. """
 cos(a, b) = a'b / (norm(a) * norm(b))
+
+
+""" Shift cosine angle between h1 and h2. """
+function shift_cos(h1, h2, L)
+    maxcos = 0
+    for l in 0:L-1
+        maxcos = max(maxcos, cosL(h1, h2, l))
+    end
+    return maxcos
+end
+
+
+""" Cosine of the angle between two shifted vectors. """
+function cosL(a, b, l, mode="both")
+    if (mode == "both")
+        return max(cosL(a, b, l, "a"), cosL(a, b, l, "b"))
+    elseif (mode == "a")
+        return a[1:end-l]'b[1+l:end] / (norm(a[1:end-l]) * norm(b))
+    elseif (mode == "b")
+        return a[1+l:end]'b[1:end-l] / (norm(a) * norm(b[1:end-l]))
+    else
+        println("Problem here")
+        return nothing
+    end
+end
 
 
 """ Normalization matrix. """
@@ -296,18 +277,112 @@ function findsetmax(x; thresh=eps()^(1/2))
 end
 
 
-function permute_factors(trueH, estH)
-    # Normalize rows
-    trueH = row_normalize(trueH)
-    estH = row_normalize(estH)
+function row_normalize(H)
+    return inv(diagscale(colnorms(H', 1))) * H
+end
 
-    # Find permutation minimizing MSE
-    permset = collect(permutations(1:size(H, 1)))     
-    resid, i = findmin([norm(estH[p, :] - trueH) for p in permset])
+
+"""
+EVALUATION TOOLS
+"""
+
+
+function cos_score(trueH, estH)
+    K, T = size(trueH)
+
+    score = 0
+    for k = 1:K
+        score += cos(trueH[k, :], estH[k, :])
+    end
+
+    return score / K
+end
+
+
+function permute_factors(trueH, estH)
+    # Find permutation by maximizing cosine score
+    permset = collect(permutations(1:size(trueH, 1)))     
+    resid, i = findmax([cos_score(estH[p, :], trueH) for p in permset])
     return permset[i]
 end
 
 
-function row_normalize(H)
-    return inv(diagscale(colnorms(H', 1))) * H
+"""
+DATA GENERATION
+"""
+
+
+""" Generate separable data. """
+function generate_separable_data(;N=23, T=100, K=3, L=5, H_sparsity=0.5, W_sparsity=0.75)
+    # Generate W
+    W = 10 * rand(L, N, K) .* (rand(L, N, K) .> W_sparsity)
+    
+    # Generate H
+    H = rand(K, T) .* (rand(K, T) .> H_sparsity)
+
+    # Add separable factors
+    if (T < 3*K*L)
+        println("T too small")
+        return nothing
+    end
+
+    hL = floor(Int, L/2)
+    times = collect(1:T-L)
+    free = (times .!= 0)
+    
+    for k = 1:K
+        for (down, up) in [(-L, hL), (-hL, L)]  # Left and ride side of sequence 
+            t = rand(times[free])
+            t1 = max(1, t+down)
+            t2 = min(T, t+up)
+
+            H[:, t1:t2] .= 0
+            H[k, t] = 5 + rand()
+
+            free[t1:min(t2,T-L)] .= false
+        end
+    end
+
+    
+    # Generate data
+    X = tensor_conv(W, H)
+    
+    return X, W, H, [N, T, K, L]
 end
+
+
+""" Check if H contains a diagonal submatrix. """
+function is_separable(H, L)
+    K, T = size(H)
+    
+    # Construct block H
+    G = zeros(K*L, T)
+    for l = 0:L-1
+        G[l*K+1:(l+1)*K, l+1:end] = H[:, 1:T-l]
+    end
+
+    # Check if G contains the permuted scaled identity
+    for r = 1:K*L
+        e_r = unitvec(K*L, r)
+        found = false
+
+        for t = 1:T
+            matches = sum((G[:, t] .!= 0) .== (e_r .!= 0))
+            if sum(matches) == K*L
+                found = true
+                break
+            end
+        end
+
+        if (!found)
+            return false
+        else
+            println("Found ", r)
+        end
+    end
+    
+    return true
+end
+
+
+end  # module
