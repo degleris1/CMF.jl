@@ -1,6 +1,7 @@
 using PyPlot; plt = PyPlot
 
 include("../src/separable.jl")
+using Separable
 
 # Generate data
 data, tW, tH, (N, T, K, L) = generate_separable_data()

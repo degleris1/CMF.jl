@@ -1,5 +1,9 @@
 module Separable
 
+export fit_conv_separable
+export generate_separable_data, is_separable
+export cos_score, permute_factors
+
 using NonNegLeastSquares
 using Combinatorics
 using LinearAlgebra
