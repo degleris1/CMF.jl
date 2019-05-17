@@ -178,7 +178,7 @@ function SPA(data, K; thresh=0)
 
     # Eliminate
     for j in 1:size(data, 2)
-        if (col1[j] < tresh)
+        if (col1[j] < thresh)
             X[:, j] .= 0
         end
     end
