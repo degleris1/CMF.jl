@@ -11,7 +11,7 @@ plt.rc("figure", titlesize=fontsize)
 plt.rc("axes", labelsize=fontsize, titlesize=fontsize)
 plt.rc("legend", fontsize=ticksize)
 plt.rc("xtick", labelsize=ticksize)
-plt.rc("ytick", labelsize=ticksize) 
+plt.rc("ytick", labelsize=ticksize)
 plt.rc("lines", linestyle="-.")
 
 
