@@ -1,6 +1,6 @@
 module MULT
 
-include("./common.jl")
+include("../common.jl")
 
 
 function update!(data, W, H, meta; l1_H=0, l2_H=0,

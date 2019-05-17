@@ -14,9 +14,9 @@ const ds = Distributions
 
 # Need to load model.jl dependencies
 # before including model.jl
-include("./mult.jl")
-include("./hals.jl")
-include("./anls.jl")
+include("./algs/mult.jl")
+include("./algs/hals.jl")
+include("./algs/anls.jl")
 
 # Source files.
 include("./common.jl")
