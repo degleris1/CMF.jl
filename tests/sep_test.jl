@@ -1,13 +1,14 @@
 using PyPlot; plt = PyPlot
 
 include("../src/separable.jl")
-using Separable
+using Main.Separable; sep = Main.Separable
 
 # Generate data
-data, tW, tH, (N, T, K, L) = generate_separable_data()
+N, T, K, L = 100, 150, 3, 5
+data, tW, tH, = gen_sep_data(N, T, K, L)
 
 # Add noise
-noisy_data = data + (1 * rand(N, T))
+noisy_data = data + (0.01 * rand(N, T))
 
 W, H = fit_conv_separable(noisy_data, K, L)
 perm = permute_factors(tH, H)
