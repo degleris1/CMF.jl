@@ -66,7 +66,7 @@ end
 
 
 function arg_shift_max(h1, h2, L)
-    argmax = nothing
+    argmax = 0
     max = 0
 
     for l in 0:L-1
