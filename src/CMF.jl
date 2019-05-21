@@ -1,5 +1,7 @@
 module CMF
 
+export fit_cnmf
+
 # Dependendies.
 import PyPlot; const plt = PyPlot
 using LinearAlgebra
@@ -17,6 +19,7 @@ const ds = Distributions
 include("./algs/mult.jl")
 include("./algs/hals.jl")
 include("./algs/anls.jl")
+include("./algs/separable.jl")
 
 # Source files.
 include("./common.jl")

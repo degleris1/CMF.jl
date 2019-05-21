@@ -1,19 +1,15 @@
 module Separable
 
-export fit_conv_separable
-export is_separable
-export cos_score, permute_factors, row_normalize
-
 using NonNegLeastSquares
 using Combinatorics
 using LinearAlgebra
 import PyPlot; plt = PyPlot
 
-include("./common.jl")
+include("../common.jl")
 
 
 """ Fit using the LCS Algorithm. """
-function fit_conv_separable(data, K, L; thresh=0, verbose=false)
+function fit(data, K, L; thresh=0, verbose=false, kwargs...)
     N, T = size(data)
 
     # Step 1: successive projection to locate the columns of W

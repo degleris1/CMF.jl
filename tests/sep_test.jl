@@ -1,24 +1,31 @@
-using PyPlot; plt = PyPlot
+import PyPlot; plt = PyPlot
 
-include("../src/separable.jl")
-using Main.Separable; sep = Main.Separable
+using Revise
+using CMF
+sep = CMF.Separable
+
+include("../datasets/sep.jl")
 
 # Generate data
-N, T, K, L = 100, 150, 3, 5
-data, tW, tH, = gen_sep_data(N, T, K, L)
+N, T, K, L = 100, 250, 3, 5
+data, tW, tH = gen_sep_data(N, T, K, L)
 
 # Add noise
-noisy_data = data + (0.01 * rand(N, T))
+noise_level = 0.01
+noisy_data = data + (noise_level * rand(N, T))
 
-W, H = fit_conv_separable(noisy_data, K, L)
-perm = permute_factors(tH, H)
+results = CMF.fit_cnmf(noisy_data, K=K, L=L, alg=:sep, thresh=0.2*N-noise_level)
+W, H = results.W, results.H
+perm = sep.permute_factors(tH, H)
 
 plt.figure()
-plt.imshow(row_normalize(H[perm, :]), aspect="auto")
+plt.imshow(sep.row_normalize(H[perm, :]), aspect="auto")
 plt.title("Fit")
 plt.show()
 
 plt.figure()
-plt.imshow(row_normalize(tH), aspect="auto")
+plt.imshow(sep.row_normalize(tH), aspect="auto")
 plt.title("Truth")
 plt.show()
+
+println("Score: ", sep.cos_score(H, tH))

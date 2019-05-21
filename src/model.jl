@@ -4,7 +4,8 @@ import HDF5
 ALGORITHMS = Dict(
     :mult => MULT,
     :hals => HALS,
-    :anls => ANLS
+    :anls => ANLS,
+    :sep => Separable,
 )
 
 """Holds results from a single CNMF fit."""
@@ -75,9 +76,22 @@ function fit_cnmf(data; L=10, K=5, alg=:mult,
     loss_hist = [compute_loss(data, W, H)]
     time_hist = [0.0]
 
+
+    # Use separable algorithm if applicable
+    if (alg == :sep)
+        t0 = time()
+        W, H = ALGORITHMS[:sep].fit(data, K, L; kwargs...)
+        dur = time() - t0
+
+        push!(time_hist, time_hist[end] + dur)
+        push!(loss_hist, compute_loss(data, W, H))
+
+        return CNMF_results(data, W, H, time_hist, loss_hist,
+                            l1_H, l2_H, l1_W, l2_W, alg)
+    end       
+    
     # Update
     itr = 1
-    tot_time = 0
     while (itr <= max_itr) && (time_hist[end] <= max_time) 
         itr += 1
 
@@ -106,6 +120,7 @@ function fit_cnmf(data; L=10, K=5, alg=:mult,
     return CNMF_results(data, W, H, time_hist, loss_hist,
                         l1_H, l2_H, l1_W, l2_W, alg)
 end
+
 
 """
 Check for model convergence

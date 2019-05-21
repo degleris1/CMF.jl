@@ -1,3 +1,5 @@
+include("../src/common.jl")
+
 """ Generate separable data. """
 function gen_sep_data(N, T, K, L; H_sparsity=0.75)
 
