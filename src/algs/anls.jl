@@ -6,7 +6,7 @@ Fit CNMF using Alternating Non-Negative Least Squares.
 # Import 
 using NonNegLeastSquares
 using LinearAlgebra
-include("./common.jl")
+include("../common.jl")
 
 
 """

@@ -1,6 +1,6 @@
 module HALS
 
-include("./common.jl")
+include("../common.jl")
 
 
 """
