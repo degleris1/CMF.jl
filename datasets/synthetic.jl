@@ -1,3 +1,7 @@
+import CMF
+import Distributions
+const ds = Distributions
+
 """
 Generates synthetic data with sparse sequences.
 
@@ -50,7 +54,7 @@ function synthetic_sequences(;
 
     # Add noise
     noise = rand(ds.Gaussian(0, noise_scale), (N, T))
-    data = max.(0, tensor_conv(W, H) + noise)
+    data = max.(0, CMF.tensor_conv(W, H) + noise)
 
     return data, W, H
 end
