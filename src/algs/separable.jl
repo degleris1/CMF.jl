@@ -6,10 +6,11 @@ using LinearAlgebra
 import PyPlot; plt = PyPlot
 
 include("../common.jl")
+include("./hals.jl")
 
 
 """ Fit using the LCS Algorithm. """
-function fit(data, K, L; thresh=0, verbose=false, kwargs...)
+function fit(data, K, L; thresh=0, verbose=false, refit_H_itr=0, kwargs...)
     N, T = size(data)
 
     # Step 1: successive projection to locate the columns of W
@@ -34,7 +35,14 @@ function fit(data, K, L; thresh=0, verbose=false, kwargs...)
 
     reps = [groups[k][1] for k in 1:K]
     H = G[reps, :]
-    
+
+    # Refit H with HALS
+    meta = HALS.HALSMeta(data, W, H)
+    HALS._setup_H_update!(W, H, meta)
+    for itr in 1:refit_H_itr
+        HALS._update_H_regular!(W, H, meta.resids, meta.Wk_list, meta.W_norms, 0, 0)
+    end
+     
     return W, H
 end
 

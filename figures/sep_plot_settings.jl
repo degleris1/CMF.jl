@@ -2,7 +2,7 @@ doc_textwidth = 469.75
 fontsize = 10
 ticksize = 8
 
-plt.matplotlib.pyplot.style.use("seaborn")
+# plt.matplotlib.pyplot.style.use("seaborn")
 plt.rc("text", usetex=true)
 plt.rc("font", family="serif", size=fontsize)
 plt.rc("lines", linewidth=1.5)
