@@ -37,10 +37,14 @@ num_iter(r::CNMF_results) = length(loss_hist)
 
 """Sorts units to reveal sequences."""
 function sortperm(r::CNMF_results)
-
+    W_norm = zeros(size(r.W))
+    for k in 1:size(r.W, 3)
+        W_norm[:, :, k] = r.W[:, :, k] / norm(r.W[:, :, k])
+    end
+    
     # For each unit, compute the largest weight across
     # components.
-    sum_over_lags = dropdims(sum(r.W, dims=1), dims=1)
+    sum_over_lags = dropdims(sum(W_norm, dims=1), dims=1)
     rows = [view(sum_over_lags, i, :) for i in axes(sum_over_lags, 1)]
     max_component = argmax.(rows)
 
@@ -48,7 +52,7 @@ function sortperm(r::CNMF_results)
     # lags (within largest component).
     max_lag = Int64[]
     for (n, c) in enumerate(max_component)
-        push!(max_lag, argmax(r.W[:, n, c]))
+        push!(max_lag, argmax(W_norm[:, n, c]))
     end
 
     # Lexographically sort units.
@@ -104,7 +108,9 @@ function fit_cnmf(data; L=10, K=5, alg=:mult,
              l2_W == 0) || error("Regularization not supported with ANLS")
         end
         
-        loss, meta = ALGORITHMS[alg].update!(data, W, H, meta; kwargs...)
+        loss, meta = ALGORITHMS[alg].update!(data, W, H, meta;
+                                             l1_H=l1_H, l2_H=l2_H, l1_W=l1_W, l2_W=l2_W,
+                                             kwargs...)
         dur = time() - t0
         
         # Record time and loss
