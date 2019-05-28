@@ -7,10 +7,12 @@ import PyPlot; plt = PyPlot
 
 include("../common.jl")
 include("./hals.jl")
+include("./anls.jl")
 
 
 """ Fit using the LCS Algorithm. """
-function fit(data, K, L; thresh=0, verbose=false, refit_H_itr=0, kwargs...)
+function fit(data, K, L; thresh=0, verbose=false, refit_H=false,
+             refit_W=false, refit_H_itr=10, spectral=true, kwargs...)
     N, T = size(data)
 
     # Step 1: successive projection to locate the columns of W
@@ -20,7 +22,7 @@ function fit(data, K, L; thresh=0, verbose=false, refit_H_itr=0, kwargs...)
     G = nonneg_lsq(V, data, alg=:pivot, variant=:comb)
     
     # Step 3: group rows of H to produce convolutive H
-    groups = shift_cluster(G, K, L, verbose)
+    groups = shift_cluster(G, K, L, verbose, spectral)
 
     # Step 4: sort rows of H
     for k = 1:K
@@ -39,9 +41,16 @@ function fit(data, K, L; thresh=0, verbose=false, refit_H_itr=0, kwargs...)
     # Refit H with HALS
     meta = HALS.HALSMeta(data, W, H)
     HALS._setup_H_update!(W, H, meta)
-    for itr in 1:refit_H_itr
-        HALS._update_H_regular!(W, H, meta.resids, meta.Wk_list, meta.W_norms, 0, 0)
+    if (refit_H)
+        for itr in 1:refit_H_itr
+            HALS._update_H_regular!(W, H, meta.resids, meta.Wk_list, meta.W_norms, 0, 0)
+        end
     end
+
+    # Refit W with ANLS
+    if (refit_W)
+        ANLS._update_W!(data, W, H)
+    end    
      
     return W, H
 end
@@ -97,7 +106,7 @@ CLUSTER STEP
 
 
 """ Cluster based on shift distance. """
-function shift_cluster(Ho, K, L, verbose)
+function shift_cluster(Ho, K, L, verbose, spectral)
     R, T = size(Ho)
 
     # Step 1: compute distance matrix
@@ -110,8 +119,12 @@ function shift_cluster(Ho, K, L, verbose)
     end
     
     # Step 2: compute groups
-    groups = find_groups(dmat, K, L, Ho)
-
+    if (spectral)
+        groups = find_groups_spectral(dmat, K, L)
+    else
+        groups = find_groups(dmat, K, L)
+    end
+    
     # Plot heatmap of similarity matrix and grouping
     if (verbose)
         fig, ax = plt.subplots()
@@ -144,7 +157,7 @@ function invert_grouping(groups, R, K)
 end
 
 
-function find_groups(dmat, K, L, Ho)
+function find_groups(dmat, K, L)
     groups = [[] for k in 1:K]
     ungrouped = collect(1:L*K)
     
@@ -161,6 +174,65 @@ function find_groups(dmat, K, L, Ho)
             push!(groups[k], ungrouped[i])
             deleteat!(ungrouped, i)
         end
+    end
+
+    return groups
+end
+
+
+function find_groups_spectral(
+    simat::Array{Float64, 2},
+    K::Int,
+    L::Int;
+    binarize::Bool=false,
+    verbose::Bool=true
+)
+    R = K * L
+
+    # Demean
+    simat = max.(0, simat .- (sum(simat) / R^2))
+
+    if (binarize)  # Largest K*L^2 entries to 1, all else to zero
+        largest = sort(1:R^2, by=j->simat[j], rev=true)
+        simat = zeros(R, R)
+        simat[largest[1:K*L^2]] .= 1
+    end
+    
+    F = eigen(simat)
+    lambda = F.values
+    V = F.vectors
+
+    rows = collect(1:R)
+    free = (rows .!= 0)
+    groups = []
+    
+    for k in 0:K-1
+        p = R-k
+        if (abs(maximum(V[:, p])) < abs(minimum(V[:, p])))
+            V[:, p] = -V[:, p]  # Reorient
+        end
+
+        priority = sort(rows[free], by=j->V[j, p], rev=true)
+        push!(groups, priority[1:L])
+        free[priority[1:L]] .= false
+    end
+
+    if (verbose)
+        plt.figure()
+        plt.imshow(simat)
+        plt.colorbar()
+        plt.show()
+
+
+        plt.figure()
+        plt.plot(1:R, lambda, marker=".")
+        plt.axvline(R - K + 1)
+        plt.show()
+
+        plt.figure()
+        plt.plot(V[:, R-K+1:R], marker=".")
+        plt.legend()
+        plt.show()
     end
 
     return groups
