@@ -3,7 +3,7 @@
 
 function plot_reconstruction(
     r::CNMF_results,
-    t_range::UnitRange=1:size(r.H, 2),
+    t_range::UnitRange=1:size(r.H, 2);
     sort_units=true,
 )
 

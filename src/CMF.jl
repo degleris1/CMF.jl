@@ -25,5 +25,6 @@ include("./algs/separable.jl")
 include("./common.jl")
 include("./model.jl")
 include("./visualize.jl")
+include("./evaluate.jl")
 
 end

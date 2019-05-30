@@ -12,7 +12,7 @@ include("./anls.jl")
 
 """ Fit using the LCS Algorithm. """
 function fit(data, K, L; thresh=0, verbose=false, refit_H=false,
-             refit_W=false, refit_H_itr=10, spectral=true, kwargs...)
+             refit_W=false, refit_H_itr=10, spectral=false, kwargs...)
     N, T = size(data)
 
     # Step 1: successive projection to locate the columns of W
@@ -20,6 +20,7 @@ function fit(data, K, L; thresh=0, verbose=false, refit_H=false,
 
     # Step 2: compute unconstrained H (NMF)
     G = nonneg_lsq(V, data, alg=:pivot, variant=:comb)
+    renormalize!(V, G)
     
     # Step 3: group rows of H to produce convolutive H
     groups = shift_cluster(G, K, L, verbose, spectral)
@@ -28,15 +29,14 @@ function fit(data, K, L; thresh=0, verbose=false, refit_H=false,
     for k = 1:K
         groups[k] = sort_group(groups[k], G)
     end
-        
+    
     # Create W, H based on grouping
-    W = zeros(L, N, K)
-    for k = 1:K
-        W[:, :, k] = V[:, groups[k]]'
-    end
-
-    reps = [groups[k][1] for k in 1:K]
-    H = G[reps, :]
+    W, H = construct_WH(V, G, groups)
+    
+    # Refit W with ANLS
+    if (refit_W)
+        ANLS._update_W!(data, W, H)
+    end    
 
     # Refit H with HALS
     meta = HALS.HALSMeta(data, W, H)
@@ -47,11 +47,38 @@ function fit(data, K, L; thresh=0, verbose=false, refit_H=false,
         end
     end
 
-    # Refit W with ANLS
-    if (refit_W)
-        ANLS._update_W!(data, W, H)
-    end    
      
+    return W, H
+end
+
+
+function construct_WH(V, G, groups; average_H=true)
+    N = size(V, 1)
+    T = size(G, 2)
+    K = size(groups, 1)
+    L = length(groups[1])
+
+    W = zeros(L, N, K)
+    for k = 1:K
+        W[:, :, k] = V[:, groups[k]]'
+    end
+
+    if (average_H)
+        H = zeros(K, T)
+        for k in 1:K
+            for t in 1:T
+                for (l, s) in enumerate(t:min(T, t+L-1))
+                    H[k, t] += G[groups[k][l], s]
+                end
+                H[k, t] = H[k, t] / (min(T, t+L) - t + 1)
+            end
+        end
+    else
+        reps = [groups[k][1] for k in 1:K]
+        H = G[reps, :]
+    end
+    
+    
     return W, H
 end
 
@@ -185,7 +212,7 @@ function find_groups_spectral(
     K::Int,
     L::Int;
     binarize::Bool=false,
-    verbose::Bool=true
+    verbose::Bool=false
 )
     R = K * L
 
@@ -284,6 +311,16 @@ end
 """
 HELPER FUNCTIONS
 """
+
+function renormalize!(V, G)
+    # Normalize each row of G to have l1-norm 1
+
+    G_norms = colnorms(G', 1)
+    DG = diagscale(G_norms)
+
+    G[:, :] = inv(DG) * G
+    V[:, :] = V * DG
+end
 
 
 """ Compute the norm of each column. """
