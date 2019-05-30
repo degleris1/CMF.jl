@@ -69,7 +69,7 @@ function fit_cnmf(data; L=10, K=5, alg=:mult,
                   patience=3,
                   kwargs...)
 
-    seed = get(kwags, :seed, nothing)
+    seed = get(kwargs, :seed, nothing)
     if (seed != nothing)
         Random.seed!(seed)
     end
@@ -85,19 +85,21 @@ function fit_cnmf(data; L=10, K=5, alg=:mult,
     loss_hist = [compute_loss(data, W, H)]
     time_hist = [0.0]
 
-
     # Use separable algorithm if applicable
-    if (alg == :sep)
+    sep_init = get(kwargs, :sep_init, false)
+    if (alg == :sep || sep_init)
         t0 = time()
         W, H = ALGORITHMS[:sep].fit(data, K, L; kwargs...)
         dur = time() - t0
-
+    end
+    
+    if (alg == :sep)
         push!(time_hist, time_hist[end] + dur)
         push!(loss_hist, compute_loss(data, W, H))
-
-        return CNMF_results(data, W, H, time_hist, loss_hist,
-                            l1_H, l2_H, l1_W, l2_W, alg)
-    end       
+        max_itr = 0
+    elseif (sep_init)
+        loss_hist = [compute_loss(data, W, H)]
+    end
     
     # Update
     itr = 1
