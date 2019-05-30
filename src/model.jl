@@ -69,6 +69,11 @@ function fit_cnmf(data; L=10, K=5, alg=:mult,
                   patience=3,
                   kwargs...)
 
+    seed = get(kwags, :seed, nothing)
+    if (seed != nothing)
+        Random.seed!(seed)
+    end
+    
     # Initialize
     W, H = init_rand(data, L, K)
     W = deepcopy(get(kwargs, :initW, W))

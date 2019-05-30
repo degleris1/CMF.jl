@@ -11,6 +11,7 @@ import DSP
 import WAV
 import Distributions
 import Base: sortperm
+import Random
 
 const ds = Distributions
 
