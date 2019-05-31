@@ -105,7 +105,7 @@ function _block_update_H!(W, H, meta)
     L, N, K = size(W)
 
     for l = 1:L
-        inds = 1:L:T-L+1
+        inds = l:L:T-L+1
         
         # Remove contribution to residual
         for k = 1:K
