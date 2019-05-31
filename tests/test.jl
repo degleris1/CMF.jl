@@ -1,6 +1,7 @@
 using PyPlot; plt = PyPlot
 using Revise
-using CMF: fit_cnmf, synthetic_sequences, init_rand
+using CMF: fit_cnmf, init_rand
+include("../datasets/synthetic.jl")
 
 K, L = 3, 10
 data, W, H = synthetic_sequences(N=250, T=2500, K=K, L=L)
