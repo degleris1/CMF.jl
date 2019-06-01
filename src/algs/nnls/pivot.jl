@@ -26,20 +26,21 @@ function pivot_update_H_cols!(W, H, meta; cols=nothing)
         cols = 1:T
     end
     
+    unfolded_W = _unfold_W(W)
     for t in cols
         last = min(t+L-1, T)
         block_size = last - t + 1
+        unfolded_W_curr = unfolded_W[1:block_size*N, :]
         
         # Remove contribution to residual
         for k = 1:K
             meta.resids[:, t:last] -= H[k, t] * W[1:block_size, :, k]'
         end
 
-        unfolded_W = _unfold_W(W)[1:block_size*N, :]
         b = vec(meta.resids[:, t:last])
         
         # Update one column of H
-        H[:,t] = nonneg_lsq(unfolded_W, -b, alg=:pivot, variant=:cache)
+        H[:,t] = nonneg_lsq(unfolded_W_curr, -b, alg=:pivot, variant=:cache)
         
         # Update residual
         for k = 1:K
