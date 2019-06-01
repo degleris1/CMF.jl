@@ -7,6 +7,7 @@ Fit CNMF using Alternating Non-Negative Least Squares.
 using LinearAlgebra
 include("../common.jl")
 include("./nnls/pivot.jl")
+include("./nnls/lbfgsb.jl")
 
 
 """
@@ -33,15 +34,19 @@ function update!(data, W, H, meta; nnls_alg=:pivot, kwargs...)
         meta = ANLSmeta(data, W, H)
     end
 
-    # W update
     if nnls_alg == :pivot
-        pivot_update_W!(data, W, H)
         pivot_update_H_cols!(W, H, meta)
-    elseif nnls_alg == :pivot_block
         pivot_update_W!(data, W, H)
+
+    elseif nnls_alg == :pivot_block
         pivot_block_update_H!(W, H, meta)
+        pivot_update_W!(data, W, H)
+
     elseif nnls_alg == :LBFGS
-        error("Not implemented yet.")
+        println("using LBFGS")
+        LBFGSB_update_H!(W, H, meta)
+        LBFGSB_update_W!(data, W, H)
+
     else
         error("NNLS alg ", nnls_alg, "is not supported")
     end

@@ -102,3 +102,11 @@ function _unfold_W(W)
     L, N, K = size(W)
     return reshape(permutedims(W, (2,1,3)), N*L, K)
 end
+
+"""
+Unfold W into an N x K*L matrix
+"""
+function w_tilde(W)
+    L, N, K = size(W)
+    return reshape(permutedims(W, (2,1,3)), N, K*L)
+end
