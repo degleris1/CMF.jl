@@ -75,3 +75,30 @@ function unpack_dims(W, H)
 
     return N, T, K, L
 end
+
+"""
+Fold W_tilde (a block matrix) into a W tensor
+"""
+function fold_W(W_mat, L, N, K)
+    W_tens = zeros(L, N, K)
+    for l in 0:L-1
+        W_fac = W_mat[:,1+(K*l):K*(l+1)]
+        W_tens[l+1,:,:] = W_fac
+    end
+    return W_tens
+end
+
+"""
+Convenience function for transpose
+"""
+function t(A)
+    return permutedims(A, (2,1))
+end
+
+"""
+Unfold W into an N*L * K matrix
+"""
+function _unfold_W(W)
+    L, N, K = size(W)
+    return reshape(permutedims(W, (2,1,3)), N*L, K)
+end
