@@ -9,14 +9,20 @@ include("../common.jl")
 include("./hals.jl")
 include("./anls.jl")
 
+PREPROCESS = Dict(
+    :svd => pre_svd,
+    :svdcond => pre_svdcond
+)
+
 
 """ Fit using the LCS Algorithm. """
 function fit(data, K, L; thresh=0, verbose=false, refit_H=false,
-             refit_W=false, refit_H_itr=10, spectral=false, kwargs...)
+             refit_W=false, refit_H_itr=10, spectral=false, pre=nothing,
+             kwargs...)
     N, T = size(data)
 
     # Step 1: successive projection to locate the columns of W
-    vertices = SPA(data, K*L, thresh=thresh)
+    vertices = SPA(data, K*L, thresh=thresh, pre=pre)
     V = data[:, vertices]
 
     # Step 2: compute unconstrained H (NMF)
@@ -274,7 +280,7 @@ LOCATE STEP
 
 
 """ Successive projection algorithm. """
-function SPA(data, K; thresh=0, svd=false) 
+function SPA(data, K; thresh=0, pre=nothing) 
     col1 = colnorms(data, 1)
     col2 = colnorms(data, 2)
     DX = diagscale(col1)
@@ -288,9 +294,8 @@ function SPA(data, K; thresh=0, svd=false)
     end
 
     # Dimensionality reduction
-    if (svd)
-        F = svd(X)
-        X = F.U[:, 1:K] * Diagonal(F.S[1:K]) * F.Vt[1:K, :]
+    if (pre != nothing)
+        X = PREPROCESS[pre](X, K)
     end
     
     vertices = []
@@ -312,6 +317,20 @@ function SPA(data, K; thresh=0, svd=false)
     end
     
     return sort(vertices)
+end
+
+
+""" Preprocess with SVD. """
+function pre_svd(X, K)
+    F = svd(X)
+    return Diagonal(F.S[1:K]) * F.Vt[1:K, :]
+end
+
+
+""" Preprocess via SVD-based preconditioning. """
+function pre_svdcond(X, K)
+    F = svd(X)
+    return F.Vt[1:K, :]
 end
 
 
