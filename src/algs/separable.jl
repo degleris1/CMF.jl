@@ -9,16 +9,13 @@ include("../common.jl")
 include("./hals.jl")
 include("./anls.jl")
 
-PREPROCESS = Dict(
-    :svd => pre_svd,
-    :svdcond => pre_svdcond
-)
-
 
 """ Fit using the LCS Algorithm. """
-function fit(data, K, L; thresh=0, verbose=false, refit_H=false,
-             refit_W=false, refit_H_itr=10, spectral=false, pre=nothing,
-             kwargs...)
+function fit(
+    data, K, L;
+    thresh=0, verbose=false, refit_H=false, refit_W=false, refit_H_itr=10,
+    spectral=false, pre=nothing, kwargs...
+)
     N, T = size(data)
 
     # Step 1: successive projection to locate the columns of W
@@ -294,8 +291,10 @@ function SPA(data, K; thresh=0, pre=nothing)
     end
 
     # Dimensionality reduction
-    if (pre != nothing)
-        X = PREPROCESS[pre](X, K)
+    if pre == :svd
+        X = pre_svd(X, K)
+    elseif pre == :svdcond
+        X = pre_svdcond(X, K)
     end
     
     vertices = []
