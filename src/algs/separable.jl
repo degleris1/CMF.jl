@@ -16,7 +16,8 @@ function fit(data, K, L; thresh=0, verbose=false, refit_H=false,
     N, T = size(data)
 
     # Step 1: successive projection to locate the columns of W
-    V, vertices = SPA(data, K*L, thresh=thresh)
+    vertices = SPA(data, K*L, thresh=thresh)
+    V = data[:, vertices]
 
     # Step 2: compute unconstrained H (NMF)
     G = nonneg_lsq(V, data, alg=:pivot, variant=:comb)
@@ -273,17 +274,23 @@ LOCATE STEP
 
 
 """ Successive projection algorithm. """
-function SPA(data, K; thresh=0)
+function SPA(data, K; thresh=0, svd=false) 
     col1 = colnorms(data, 1)
     col2 = colnorms(data, 2)
     DX = diagscale(col1)
     X = data * inv(DX)
 
-    # Eliminate
+    # Eliminate columns with small norm
     for j in 1:size(data, 2)
         if (col1[j] < thresh)
             X[:, j] .= 0
         end
+    end
+
+    # Dimensionality reduction
+    if (svd)
+        F = svd(X)
+        X = F.U[:, 1:K] * Diagonal(F.S[1:K]) * F.Vt[1:K, :]
     end
     
     vertices = []
@@ -304,7 +311,7 @@ function SPA(data, K; thresh=0)
         resid = (I - (w * w' / norm(w)^2)) * resid
     end
     
-    return data[:, sort(vertices)], sort(vertices)
+    return sort(vertices)
 end
 
 
