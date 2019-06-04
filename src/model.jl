@@ -4,7 +4,8 @@ import HDF5
 ALGORITHMS = Dict(
     :mult => MULT,
     :hals => HALS,
-    :anls => ANLS
+    :anls => ANLS,
+    :sep => Separable,
 )
 
 """Holds results from a single CNMF fit."""
@@ -36,10 +37,14 @@ num_iter(r::CNMF_results) = length(loss_hist)
 
 """Sorts units to reveal sequences."""
 function sortperm(r::CNMF_results)
-
+    W_norm = zeros(size(r.W))
+    for k in 1:size(r.W, 3)
+        W_norm[:, :, k] = r.W[:, :, k] / norm(r.W[:, :, k])
+    end
+    
     # For each unit, compute the largest weight across
     # components.
-    sum_over_lags = dropdims(sum(r.W, dims=1), dims=1)
+    sum_over_lags = dropdims(sum(W_norm, dims=1), dims=1)
     rows = [view(sum_over_lags, i, :) for i in axes(sum_over_lags, 1)]
     max_component = argmax.(rows)
 
@@ -47,7 +52,7 @@ function sortperm(r::CNMF_results)
     # lags (within largest component).
     max_lag = Int64[]
     for (n, c) in enumerate(max_component)
-        push!(max_lag, argmax(r.W[:, n, c]))
+        push!(max_lag, argmax(W_norm[:, n, c]))
     end
 
     # Lexographically sort units.
@@ -64,6 +69,11 @@ function fit_cnmf(data; L=10, K=5, alg=:mult,
                   patience=3,
                   kwargs...)
 
+    seed = get(kwargs, :seed, nothing)
+    if (seed != nothing)
+        Random.seed!(seed)
+    end
+    
     # Initialize
     W, H = init_rand(data, L, K)
     W = deepcopy(get(kwargs, :initW, W))
@@ -75,9 +85,24 @@ function fit_cnmf(data; L=10, K=5, alg=:mult,
     loss_hist = [compute_loss(data, W, H)]
     time_hist = [0.0]
 
+    # Use separable algorithm if applicable
+    sep_init = get(kwargs, :sep_init, false)
+    if (alg == :sep || sep_init)
+        t0 = time()
+        W, H = ALGORITHMS[:sep].fit(data, K, L; kwargs...)
+        dur = time() - t0
+    end
+    
+    if (alg == :sep)
+        push!(time_hist, time_hist[end] + dur)
+        push!(loss_hist, compute_loss(data, W, H))
+        max_itr = 0
+    elseif (sep_init)
+        loss_hist = [compute_loss(data, W, H)]
+    end
+    
     # Update
     itr = 1
-    tot_time = 0
     while (itr <= max_itr) && (time_hist[end] <= max_time) 
         itr += 1
 
@@ -90,7 +115,9 @@ function fit_cnmf(data; L=10, K=5, alg=:mult,
              l2_W == 0) || error("Regularization not supported with ANLS")
         end
         
-        loss, meta = ALGORITHMS[alg].update!(data, W, H, meta; kwargs...)
+        loss, meta = ALGORITHMS[alg].update!(data, W, H, meta;
+                                             l1_H=l1_H, l2_H=l2_H, l1_W=l1_W, l2_W=l2_W,
+                                             kwargs...)
         dur = time() - t0
         
         # Record time and loss
@@ -106,6 +133,7 @@ function fit_cnmf(data; L=10, K=5, alg=:mult,
     return CNMF_results(data, W, H, time_hist, loss_hist,
                         l1_H, l2_H, l1_W, l2_W, alg)
 end
+
 
 """
 Check for model convergence

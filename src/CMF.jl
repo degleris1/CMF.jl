@@ -1,5 +1,7 @@
 module CMF
 
+export fit_cnmf
+
 # Dependendies.
 import PyPlot; const plt = PyPlot
 using LinearAlgebra
@@ -9,6 +11,7 @@ import DSP
 import WAV
 import Distributions
 import Base: sortperm
+import Random
 
 const ds = Distributions
 
@@ -17,10 +20,12 @@ const ds = Distributions
 include("./algs/mult.jl")
 include("./algs/hals.jl")
 include("./algs/anls.jl")
+include("./algs/separable.jl")
 
 # Source files.
 include("./common.jl")
 include("./model.jl")
 include("./visualize.jl")
+include("./evaluate.jl")
 
 end
