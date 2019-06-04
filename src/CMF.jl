@@ -2,14 +2,10 @@ module CMF
 
 export fit_cnmf
 
-# Dependendies.
+# Dependencies.
 import PyPlot; const plt = PyPlot
 using LinearAlgebra
 using HDF5
-using ImageFiltering
-import DSP
-import WAV
-import Distributions
 import Base: sortperm
 import Random
 
