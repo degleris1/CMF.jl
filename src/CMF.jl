@@ -9,7 +9,6 @@ using HDF5
 import Base: sortperm
 import Random
 
-const ds = Distributions
 
 # Need to load model.jl dependencies
 # before including model.jl
