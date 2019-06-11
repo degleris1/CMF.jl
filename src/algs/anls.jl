@@ -8,6 +8,7 @@ using LinearAlgebra
 include("../common.jl")
 include("./nnls/pivot.jl")
 include("./nnls/lbfgsb.jl")
+include("./nnls/pgd.jl")
 
 """
 Main update rule for ANLS
@@ -26,7 +27,14 @@ Params
                                Maybe give better performance for some problems.
 
                 :LBFGS : Uses FORTRAN wrapper of the LBFGS-B solver for general box-constrained optimization.
-                         Updates a single row of W and a single column of H at a time.
+
+    W_solver: julia symbol, one of the following:
+
+                :pivot : Pivot method with caching defined in NonNegLeastSquares.jl. Updates
+                         a single column of H at once.
+
+                :LBFGS : Uses FORTRAN wrapper of the LBFGS-B solver for general box-constrained optimization.
+                         Updates a single row of W and a single column of H at a time.                        Updates a single row of W and a single column of H at a time.
 """
 
 H_algs = Dict(
@@ -37,7 +45,8 @@ H_algs = Dict(
 
 W_algs = Dict(
     :pivot => pivot_update_W!,
-    :LBFGSB => LBFGSB_update_W!
+    :LBFGSB => LBFGSB_update_W!,
+    :pgd => pgd_update_W!
 )
 function update!(data, W, H, meta; 
                  H_solver=:pivot_block, 
@@ -53,7 +62,7 @@ function update!(data, W, H, meta;
         error("Invalid argument for H_solver:", H_solver)
     end
     if !(W_solver in keys(W_algs))
-        error("Invalid argument for W_solver:", H_solver)
+        error("Invalid argument for W_solver:", W_solver)
     end
 
     # Call H and W updates using specified solvers
