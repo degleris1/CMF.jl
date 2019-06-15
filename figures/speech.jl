@@ -1,5 +1,4 @@
 
-using Revise
 using CMF
 using PyPlot
 using DSP
@@ -44,7 +43,7 @@ CMF.fit_cnmf(data; L=12, K=20,
                        )
 
 results = CMF.fit_cnmf(data; L=12, K=20,
-                       alg=alg, max_itr=1, max_time=6000,
+                       alg=alg, max_itr=Inf, max_time=6000,
                        check_convergence=false
                        )
 
