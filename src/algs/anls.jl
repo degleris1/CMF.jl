@@ -8,6 +8,9 @@ using NonNegLeastSquares
 using LinearAlgebra
 include("../common.jl")
 
+# Set tolerance for NNLS solves
+NNLS_TOL=1e-5
+
 
 """
 Main update rule
@@ -55,7 +58,9 @@ function _update_W!(data, W, H)
     L,N,K = size(W)
     H_unfold = shift_and_stack(H, L)
 
-    W_unfold = nonneg_lsq(t(H_unfold), t(data), alg=:pivot, variant=:comb)
+    W_unfold = nonneg_lsq(t(H_unfold), t(data),
+                          alg=:pivot, variant=:comb,
+                          tol=NNLS_TOL)
     
     W[:,:,:] = fold_W(t(W_unfold), L, N, K)
 end
@@ -86,7 +91,9 @@ function _update_H!(W, H, meta; cols=nothing)
         b = vec(meta.resids[:, t:last])
         
         # Update one column of H
-        H[:,t] = nonneg_lsq(unfolded_W, -b, alg=:pivot, variant=:cache)
+        H[:,t] = nonneg_lsq(unfolded_W, -b,
+                            alg=:pivot, variant=:cache,
+                            tol=NNLS_TOL)
         
         # Update residual
         for k = 1:K
@@ -124,7 +131,8 @@ function _block_update_H!(W, H, meta)
 
         # Update block of H
         H[:, inds] = NonNegLeastSquares.nonneg_lsq(unfolded_W, -B,
-                                                   alg=:pivot, variant=:comb)
+                                                   alg=:pivot, variant=:comb,
+                                                   tol=NNLS_TOL)
         
         # Update residual
         for k = 1:K
