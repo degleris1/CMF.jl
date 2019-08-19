@@ -22,12 +22,7 @@ function plot_reconstruction(
 end
 
 
-function plot_Ws(
-    r::CNMF_results;
-    sort_units=true,
-    trueW=nothing
-)
-
+function plot_Ws(r::CNMF_results; sort_units=true, trueW=nothing)
     data, W, H = r.data, r.W, r.H
     idx = sort_units ? sortperm(r) : 1:num_units(r)
 
@@ -49,8 +44,8 @@ function plot_Ws(
 end
 
 function format_imshow_axis(
-    ax; 
-    border_width=1, 
+    ax;
+    border_width=1,
     border_color="black",
     remove_ticks=true
 )
@@ -64,9 +59,7 @@ function format_imshow_axis(
     end
 end
 
-function plot_H(
-    r::CNMF_results
-)
+function plot_H(r::CNMF_results)
     fig, axes = plt.subplots(num_components(r), 1)
     for (k, ax) in enumerate(axes)
         ax.plot(r.H[k, :], ls="-", markersize=0)

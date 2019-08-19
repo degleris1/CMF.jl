@@ -1,8 +1,10 @@
 using LinearAlgebra
+
+const AbstractTensor{T} = AbstractArray{T, 3}
+
 const EPSILON = eps()
 
-
-function tensor_conv(W, H)
+function tensor_conv(W::AbstractTensor, H::AbstractMatrix)
     L, N, K = size(W)
     T = size(H)[2]
 
@@ -14,13 +16,15 @@ function tensor_conv(W, H)
 end
 
 """Computes normalized quadratic loss."""
-compute_loss(data, W, H) = norm(compute_resids(data, W, H)) / norm(data)
+compute_loss(data::AbstractMatrix, W::AbstractTensor, H::AbstractMatrix) =
+    norm(compute_resids(data, W, H)) / norm(data)
 
 """Computes matrix of residuals."""
-compute_resids(data, W, H) = tensor_conv(W, H) - data
+compute_resids(data::AbstractMatrix, W::AbstractTensor, H::AbstractMatrix) =
+    tensor_conv(W, H) - data
 
 
-function tensor_transconv(W, X)
+function tensor_transconv(W::AbstractTensor, X::AbstractMatrix)
     L, N, K = size(W)
     T = size(X)[2]
 
@@ -33,7 +37,7 @@ function tensor_transconv(W, X)
 end
 
 
-function s_dot(Wl, H, lag)
+function s_dot(Wl::AbstractMatrix, H::AbstractMatrix, lag::Integer)
     K, T = size(H)
 
     if (lag < 0)
@@ -45,9 +49,9 @@ function s_dot(Wl, H, lag)
 end
 
 
-function shift_cols(X, lag)
+function shift_cols(X::AbstractMatrix, lag::Integer)
     T = size(X)[2]
-    
+
     if (lag <= 0)
         return X[:, 1-lag:T]
 
@@ -57,7 +61,7 @@ function shift_cols(X, lag)
 end
 
 
-function shift_and_stack(H, L)
+function shift_and_stack(H::AbstractMatrix, L::Integer)
     K, T = size(H)
 
     H_stacked = zeros(L*K, T)
@@ -69,7 +73,7 @@ function shift_and_stack(H, L)
 end
 
 
-function unpack_dims(W, H)
+function unpack_dims(W::AbstractTensor, H::AbstractMatrix)
     L, N, K = size(W)
     T = size(H, 2)
 

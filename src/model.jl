@@ -10,15 +10,15 @@ ALGORITHMS = Dict(
 
 """Holds results from a single CNMF fit."""
 struct CNMF_results
-    data::Array{Float64}
-    W::Array{Float64}
-    H::Array{Float64}
-    time_hist::Array{Float64}
-    loss_hist::Array{Float64}
-    l1_H::Float64
-    l2_H::Float64
-    l1_W::Float64
-    l2_W::Float64
+    data::AbstractMatrix
+    W::AbstractTensor
+    H::AbstractMatrix
+    time_hist::AbstractVector
+    loss_hist::AbstractVector
+    l1_H::AbstractFloat
+    l2_H::AbstractFloat
+    l1_W::AbstractFloat
+    l2_W::AbstractFloat
     alg::Symbol
 end
 
@@ -41,7 +41,7 @@ function sortperm(r::CNMF_results)
     for k in 1:size(r.W, 3)
         W_norm[:, :, k] = r.W[:, :, k] / norm(r.W[:, :, k])
     end
-    
+
     # For each unit, compute the largest weight across
     # components.
     sum_over_lags = dropdims(sum(W_norm, dims=1), dims=1)
@@ -61,26 +61,34 @@ function sortperm(r::CNMF_results)
 end
 
 
-function fit_cnmf(data; L=10, K=5, alg=:mult,
-                  max_itr=100, max_time=Inf,
-                  l1_H=0, l2_H=0, l1_W=0, l2_W=0,
-                  check_convergence=false,
-                  tol = 1e-4,
-                  patience=3,
-                  kwargs...)
-
+function fit_cnmf(
+    data::AbstractMatrix;
+    L::Integer=10,
+    K::Integer=5,
+    alg::Symbol=:mult,
+    max_itr::Real=100,
+    max_time::Real=Inf,
+    l1_H::Real=0,
+    l2_H::Real=0,
+    l1_W::Real=0,
+    l2_W::Real=0,
+    check_convergence::Bool=false,
+    tol::Real=1e-4,
+    patience::Real=3,
+    kwargs...
+)
     seed = get(kwargs, :seed, nothing)
     if (seed != nothing)
         Random.seed!(seed)
     end
-    
+
     # Initialize
     W, H = init_rand(data, L, K)
     W = deepcopy(get(kwargs, :initW, W))
     H = deepcopy(get(kwargs, :initH, H))
-    
+
     meta = nothing
-    
+
     # Set up optimization tracking
     loss_hist = [compute_loss(data, W, H)]
     time_hist = [0.0]
@@ -92,7 +100,7 @@ function fit_cnmf(data; L=10, K=5, alg=:mult,
         W, H = ALGORITHMS[:sep].fit(data, K, L; kwargs...)
         dur = time() - t0
     end
-    
+
     if (alg == :sep)
         push!(time_hist, time_hist[end] + dur)
         push!(loss_hist, compute_loss(data, W, H))
@@ -100,10 +108,10 @@ function fit_cnmf(data; L=10, K=5, alg=:mult,
     elseif (sep_init)
         loss_hist = [compute_loss(data, W, H)]
     end
-    
+
     # Update
     itr = 1
-    while (itr <= max_itr) && (time_hist[end] <= max_time) 
+    while (itr <= max_itr) && (time_hist[end] <= max_time)
         itr += 1
 
         # Update with timing
@@ -114,12 +122,12 @@ function fit_cnmf(data; L=10, K=5, alg=:mult,
              l1_W == 0 &&
              l2_W == 0) || error("Regularization not supported with ANLS")
         end
-        
+
         loss, meta = ALGORITHMS[alg].update!(data, W, H, meta;
                                              l1_H=l1_H, l2_H=l2_H, l1_W=l1_W, l2_W=l2_W,
                                              kwargs...)
         dur = time() - t0
-        
+
         # Record time and loss
         push!(time_hist, time_hist[end] + dur)
         push!(loss_hist, loss)
@@ -138,7 +146,7 @@ end
 """
 Check for model convergence
 """
-function converged(loss_hist, patience, tol)
+function converged(loss_hist::AbstractVector, patience::Real, tol::Real)
 
     # If we have not run for `patience` iterations,
     # we have not converged.
@@ -160,7 +168,7 @@ end
 """
 Initialize randomly, scaling to minimize square error.
 """
-function init_rand(data, L, K)
+function init_rand(data::AbstractMatrix, L::Integer, K::Integer)
     N, T = size(data)
 
     W = rand(L, N, K)
@@ -179,9 +187,19 @@ end
 Fit several models with varying parameters.
 Possible to iterate over lags (L), number of components (K), and different algorithms (alg).
 """
-function parameter_sweep(data; L_vals=[7], K_vals=[3], alg_vals=[:mult],
-                         alg_options=Dict(), max_itr=100, max_time=Inf,
-                         lambda1=0, lambda2=0, initW=nothing, initH=nothing)
+function parameter_sweep(
+    data;
+    L_vals=[7],
+    K_vals=[3],
+    alg_vals=[:mult],
+    alg_options=Dict(),
+    max_itr=100,
+    max_time=Inf,
+    lambda1=0,
+    lambda2=0,
+    initW=nothing,
+    initH=nothing
+)
     all_results = Dict()
     for (L, K, alg) in Iterators.product(L_vals, K_vals, alg_vals)
         all_results[(L, K, alg)] = fit_cnmf(
@@ -196,7 +214,7 @@ end
 
 
 """Saves CNMF_results."""
-function save_model(results::CNMF_results, path)
+function save_model(results::CNMF_results, path::String)
     HDF5.h5open(path, "w") do file
         HDF5.write(file, "W", results.W)
         HDF5.write(file, "H", results.H)
@@ -209,12 +227,12 @@ function save_model(results::CNMF_results, path)
         HDF5.write(file, "l2_W", results.l2_W)
         HDF5.write(file, "alg", String(results.alg))
     end
-        
+
 end
 
 
 """Loads CNMF_results."""
-function load_model(path)
+function load_model(path::String)
     f = HDF5.h5open(path, "r")
     W = HDF5.read(f, "W")
     H = HDF5.read(f, "H")
@@ -229,5 +247,3 @@ function load_model(path)
     return CNMF_results(data, W, H, time_hist, loss_hist,
                         l1_H, l2_H, l1_W, l2_W, alg)
 end
-
-

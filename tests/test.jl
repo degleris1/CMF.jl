@@ -12,7 +12,7 @@ alg_results = Dict()
 settings = [
     [:hals, Dict(), "HALS"],
     #[:mult, Dict(), "MULT"],
-    [:anls, Dict(), "ANLS"]
+    #[:anls, Dict(), "ANLS"]
 ]
 
 plt.figure()
