@@ -9,12 +9,14 @@ using HDF5
 import PyPlot
 import Base: sortperm
 import Random
+import HDF5
 import JLD
 
 const plt = PyPlot
 
 # Constants
 const EPSILON = eps()
+const Tensor{T} = Array{T, 3}
 
 # Need to load model.jl dependencies
 # before including model.jl
