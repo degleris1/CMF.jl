@@ -55,13 +55,9 @@ function sortperm(r::CNMF_results)
 end
 
 
-function fit_cnmf(data; L=10, K=5, alg=:alt,
-                  max_itr=100, max_time=Inf,
-                  l1_H=0, l2_H=0, l1_W=0, l2_W=0,
-                  check_convergence=false,
-                  tol = 1e-4,
-                  patience=3,
-                  kwargs...)
+function fit_cnmf(
+    data; L=10, K=5, alg=MultUpdate,
+    max_itr=100, max_time=Inf, kwargs...)
 
     seed = get(kwargs, :seed, nothing)
     if (seed != nothing)
@@ -71,15 +67,16 @@ function fit_cnmf(data; L=10, K=5, alg=:alt,
     # Initialize
     W_init, H_init = init_rand(data, L, K)
 
+    # TODO have the user input the type directly
     # TODO reincorporate separable stuff
 
     alg = AlternatingOptimizer(
-        MultUpdate(data, W_init, H_init),
+        alg(data, W_init, H_init),
         max_itr,
         max_time
     )
 
-    return fit(alg, data, L, K, W_init, H_init)
+    return fit(alg, data, L, K, W_init, H_init, kwargs...)
 end
 
 

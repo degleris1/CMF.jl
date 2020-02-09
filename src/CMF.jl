@@ -5,6 +5,7 @@ export fit_cnmf
 # Dependencies.
 using LinearAlgebra
 using HDF5
+using NonNegLeastSquares
 
 import PyPlot
 import Base: sortperm
@@ -18,20 +19,19 @@ const plt = PyPlot
 const EPSILON = eps()
 const Tensor{T} = Array{T, 3}
 
-# Need to load model.jl dependencies
-# before including model.jl
+# Core files
 include("./common.jl")
-
-include("./algs/alternating.jl")
-include("./algs/mult.jl")
-# include("./algs/hals.jl")
-# include("./algs/anls.jl")
-# include("./algs/separable.jl")
-
-# # Source files.
-
 include("./model.jl")
 include("./visualize.jl")
 include("./evaluate.jl")
+
+# Algorithms
+include("./algs/alternating.jl")
+include("./algs/mult.jl")
+include("./algs/hals.jl")
+include("./algs/anls.jl")
+# include("./algs/separable.jl")
+
+
 
 end

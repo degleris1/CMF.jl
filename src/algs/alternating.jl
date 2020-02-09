@@ -3,6 +3,7 @@ An abstract type for an update rule that updates both W and H.
 
 Must implement:
     update!(rule::AbstractCFUpdate, data, W, H; kwargs...)
+    UpdateRule(data, W, H)
 """
 abstract type AbstractCFUpdate end
 
@@ -23,6 +24,9 @@ function fit(
 )
     # Load keyword args
     check_convergence = get(kwargs, :check_convergence, false)
+    patience = get(kwargs, :patience, 0)
+    tol = get(kwargs, :tol, 1e-4)
+
 
     W = deepcopy(W_init)
     H = deepcopy(H_init)

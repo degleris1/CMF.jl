@@ -1,6 +1,6 @@
 using PyPlot; plt = PyPlot
 using Revise
-using CMF: fit_cnmf, init_rand
+using CMF: fit_cnmf, init_rand, MultUpdate, HALSUpdate
 
 include("../datasets/synthetic.jl")
 
@@ -11,13 +11,14 @@ initW, initH = init_rand(data, L, K)
 
 alg_results = Dict()
 settings = [
-    [:hals, Dict(), "HALS"],
-    #[:mult, Dict(), "MULT"],
-    # [:anls, Dict(), "ANLS"]
+    # [CMF.HALSUpdate, Dict(), "HALS"],
+    # [CMF.MultUpdate, Dict(), "MULT"],
+    [CMF.ANLSUpdate, Dict(), "ANLS"]
 ]
 
 #plt.figure()
 for (alg, kwargs, label) in settings
+    println("Testing ", label)
     results = fit_cnmf(
         data; L=L, K=K,
         alg=alg, max_itr=Inf, max_time=5,

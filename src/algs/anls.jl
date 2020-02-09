@@ -1,37 +1,39 @@
-module ANLS
 """
 Fit CNMF using Alternating Non-Negative Least Squares.
 """
 
-# Import 
-using NonNegLeastSquares
-using LinearAlgebra
-include("../common.jl")
+mutable struct ANLSUpdate <: AbstractCFUpdate
+    resids
+    data_norm
+end
+
+function ANLSUpdate(data, W, H)
+    resids = compute_resids(data, W, H)
+    data_norm = norm(data)
+    return ANLSUpdate(resids, data_norm)
+end
+
 
 # Set tolerance for NNLS solves
-NNLS_TOL=1e-5
+const NNLS_TOL = 1e-5
 
 
 """
 Main update rule
 """
-function update!(data, W, H, meta; variant=nothing, kwargs...)
-    if (meta == nothing)
-        meta = ANLSmeta(data, W, H)
-    end
-
+function update!(rule::ANLSUpdate, data, W, H; variant=nothing, kwargs...)
     # W update
-    _update_W!(data, W, H)
-    meta.resids = compute_resids(data, W, H)
+    _anls_update_W!(data, W, H)
+    rule.resids = compute_resids(data, W, H)
 
     # H update
     if (variant == :block)
-        _block_update_H!(W, H, meta)
+        _anls_block_update_H!(rule, W, H)
     else
-        _update_H!(W, H, meta)
+        _anls_update_H!(rule, W, H)
     end
     
-    return norm(meta.resids) / meta.data_norm, meta
+    return norm(rule.resids) / rule.data_norm
 end
 
 
@@ -40,27 +42,17 @@ Private
 """
 
 
-mutable struct ANLSmeta
-    resids
-    data_norm
-    function ANLSmeta(data, W, H)
-        resids = compute_resids(data, W, H)
-        data_norm = norm(data)
-        return new(resids, data_norm)
-    end
-end
-
-
 """
 This is just a single NNLS solve using the unfolded H matrix.
 """
-function _update_W!(data, W, H)
+function _anls_update_W!(data, W, H)
     L,N,K = size(W)
     H_unfold = shift_and_stack(H, L)
 
-    W_unfold = nonneg_lsq(t(H_unfold), t(data),
-                          alg=:pivot, variant=:comb,
-                          tol=NNLS_TOL)
+    W_unfold = nonneg_lsq(
+        t(H_unfold), t(data),
+        alg=:pivot, variant=:comb, tol=NNLS_TOL
+    )
     
     W[:,:,:] = fold_W(t(W_unfold), L, N, K)
 end
@@ -69,7 +61,7 @@ end
 """
 Perform H update a single column at a time
 """
-function _update_H!(W, H, meta; cols=nothing)
+function _anls_update_H!(rule::ANLSUpdate, W, H; cols=nothing)
     N, T, K, L = unpack_dims(W, H)
 
     if (cols == nothing)
@@ -84,11 +76,11 @@ function _update_H!(W, H, meta; cols=nothing)
         
         # Remove contribution to residual
         for k = 1:K
-            meta.resids[:, t:last] -= H[k, t] * W[1:block_size, :, k]'
+            rule.resids[:, t:last] -= H[k, t] * W[1:block_size, :, k]'
         end
 
         unfolded_W = _unfold_W(W)[1:block_size*N, :]
-        b = vec(meta.resids[:, t:last])
+        b = vec(rule.resids[:, t:last])
         
         # Update one column of H
         H[:,t] = nonneg_lsq(unfolded_W, -b,
@@ -97,7 +89,7 @@ function _update_H!(W, H, meta; cols=nothing)
         
         # Update residual
         for k = 1:K
-            meta.resids[:, t:last] += H[k, t] * W[1:block_size, :, k]'
+            rule.resids[:, t:last] += H[k, t] * W[1:block_size, :, k]'
         end
     end
 end
@@ -107,7 +99,7 @@ end
 """
 Update several columns of H at once.
 """
-function _block_update_H!(W, H, meta)
+function _anls_block_update_H!(rule::ANLSUpdate, W, H)
     K, T = size(H)
     L, N, K = size(W)
 
@@ -117,7 +109,7 @@ function _block_update_H!(W, H, meta)
         # Remove contribution to residual
         for k = 1:K
             for t in inds
-                meta.resids[:, t:t+L-1] -= H[k, t] * W[:, :, k]'
+                rule.resids[:, t:t+L-1] -= H[k, t] * W[:, :, k]'
             end
         end
         
@@ -126,23 +118,23 @@ function _block_update_H!(W, H, meta)
         B = zeros(N*L, length(inds))
         for i in 1:length(inds)
             t = inds[i]
-            B[:, i] = vec(meta.resids[:, t:t+L-1])
+            B[:, i] = vec(rule.resids[:, t:t+L-1])
         end
 
         # Update block of H
-        H[:, inds] = NonNegLeastSquares.nonneg_lsq(unfolded_W, -B,
-                                                   alg=:pivot, variant=:comb,
-                                                   tol=NNLS_TOL)
-        
+        H[:, inds] = nonneg_lsq(unfolded_W, -B,
+                                alg=:pivot, variant=:comb,
+                                tol=NNLS_TOL)
+
         # Update residual
         for k = 1:K
             for t in inds
-                meta.resids[:, t:t+L-1] += H[k, t] * W[:, :, k]'
+                rule.resids[:, t:t+L-1] += H[k, t] * W[:, :, k]'
             end
         end
     end
 
-    _update_H!(W, H, meta; cols=T-L+2:T)
+    _anls_update_H!(rule, W, H; cols=T-L+2:T)
 end
 
 
@@ -172,5 +164,3 @@ Convenience function for transpose
 function t(A)
     return permutedims(A, (2,1))
 end
-
-end  # module
