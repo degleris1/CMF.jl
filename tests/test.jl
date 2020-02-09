@@ -1,6 +1,7 @@
 using PyPlot; plt = PyPlot
 using Revise
 using CMF: fit_cnmf, init_rand
+
 include("../datasets/synthetic.jl")
 
 K, L = 3, 10
@@ -12,23 +13,24 @@ alg_results = Dict()
 settings = [
     [:hals, Dict(), "HALS"],
     #[:mult, Dict(), "MULT"],
-    [:anls, Dict(), "ANLS"]
+    # [:anls, Dict(), "ANLS"]
 ]
 
-plt.figure()
+#plt.figure()
 for (alg, kwargs, label) in settings
-    results = fit_cnmf(data; L=L, K=K,
-                       alg=alg, max_itr=Inf, max_time=5,
-                       initW=initW, initH=initH,
-                       kwargs...
-                       )
+    results = fit_cnmf(
+        data; L=L, K=K,
+        alg=alg, max_itr=Inf, max_time=5,
+        # initW=initW, initH=initH,
+        # kwargs...
+    )
 
-    plt.plot(results.time_hist, results.loss_hist, label=label, marker=".")
+    #plt.plot(results.time_hist, results.loss_hist, label=label, marker=".")
     alg_results[alg] = results
 end
-plt.legend()
-plt.xlabel("Time (seconds)")
-plt.ylabel("Loss")
+#plt.legend()
+#plt.xlabel("Time (seconds)")
+#plt.ylabel("Loss")
 
-plt.savefig("cnmf_test.png")
+# plt.savefig("cnmf_test.png")
 ;

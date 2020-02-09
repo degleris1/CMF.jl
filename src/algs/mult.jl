@@ -1,15 +1,18 @@
-module MULT
+mutable struct MultUpdate <: AbstractCFUpdate
+    resids
+    data_norm
+end
 
-include("../common.jl")
+function MultUpdate(data, W, H)
+    resids = compute_resids(data, W, H)
+    data_norm = norm(data)
+    return MultUpdate(resids, data_norm)
+end
 
-
-function update!(data, W, H, meta; l1_H=0, l2_H=0,
-                 l1_W=0, l2_W=0, kwargs...)
-
-    if (meta == nothing)
-        meta = MultMeta(data, W, H)
-    end
-    
+function update!(
+    rule::MultUpdate, data, W, H;
+    l1_H=0, l2_H=0, l1_W=0, l2_W=0, kwargs...
+)
     num_W, denom_W = _compute_mult_W(data, W, H)
     W .*= num_W ./ (denom_W .+ l1_W .+ 2 .* l2_W .* W .+ EPSILON)
 
@@ -17,27 +20,10 @@ function update!(data, W, H, meta; l1_H=0, l2_H=0,
     H .*= num_H ./ (denom_H .+ l1_H .+ 2 .* l2_H .* H .+ EPSILON)
 
     # Cache resids
-    meta.resids = compute_resids(data, W, H)
+    rule.resids = compute_resids(data, W, H)
     
-    return norm(meta.resids) / meta.data_norm, meta
+    return norm(rule.resids) / rule.data_norm
 end
-
-
-"""
-Private
-"""
-
-
-mutable struct MultMeta
-    resids
-    data_norm
-    function MultMeta(data, W, H)
-        resids = compute_resids(data, W, H)
-        data_norm = norm(data)
-        return new(resids, data_norm)
-    end
-end
-
 
 function _compute_mult_W(data, W, H)
     L, N, K = size(W)
@@ -61,6 +47,3 @@ function _compute_mult_H(data, W, H)
     est = tensor_conv(W, H)
     return tensor_transconv(W, data), tensor_transconv(W, est)
 end
-
-
-end  # module

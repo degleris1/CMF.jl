@@ -1,24 +1,19 @@
 
 
-ALGORITHMS = Dict(
-    :mult => MULT,
-    :hals => HALS,
-    :anls => ANLS,
-    :sep => Separable,
-)
+# ALGORITHMS = Dict(
+#     :mult => MULT,
+#     :hals => HALS,
+#     :anls => ANLS,
+#     :sep => Separable,
+# )
 
 """Holds results from a single CNMF fit."""
 struct CNMF_results
-    data::Array{Float64}
-    W::Array{Float64}
-    H::Array{Float64}
-    time_hist::Array{Float64}
-    loss_hist::Array{Float64}
-    l1_H::Float64
-    l2_H::Float64
-    l1_W::Float64
-    l2_W::Float64
-    alg::Symbol
+    data::Matrix
+    W::Tensor
+    H::Matrix
+    time_hist
+    loss_hist
 end
 
 
@@ -60,7 +55,7 @@ function sortperm(r::CNMF_results)
 end
 
 
-function fit_cnmf(data; L=10, K=5, alg=:mult,
+function fit_cnmf(data; L=10, K=5, alg=:alt,
                   max_itr=100, max_time=Inf,
                   l1_H=0, l2_H=0, l1_W=0, l2_W=0,
                   check_convergence=false,
@@ -72,65 +67,19 @@ function fit_cnmf(data; L=10, K=5, alg=:mult,
     if (seed != nothing)
         Random.seed!(seed)
     end
-    
+
     # Initialize
-    W, H = init_rand(data, L, K)
-    W = deepcopy(get(kwargs, :initW, W))
-    H = deepcopy(get(kwargs, :initH, H))
-    
-    meta = nothing
-    
-    # Set up optimization tracking
-    loss_hist = [compute_loss(data, W, H)]
-    time_hist = [0.0]
+    W_init, H_init = init_rand(data, L, K)
 
-    # Use separable algorithm if applicable
-    sep_init = get(kwargs, :sep_init, false)
-    if (alg == :sep || sep_init)
-        t0 = time()
-        W, H = ALGORITHMS[:sep].fit(data, K, L; kwargs...)
-        dur = time() - t0
-    end
-    
-    if (alg == :sep)
-        push!(time_hist, time_hist[end] + dur)
-        push!(loss_hist, compute_loss(data, W, H))
-        max_itr = 0
-    elseif (sep_init)
-        loss_hist = [compute_loss(data, W, H)]
-    end
-    
-    # Update
-    itr = 1
-    while (itr <= max_itr) && (time_hist[end] <= max_time) 
-        itr += 1
+    # TODO reincorporate separable stuff
 
-        # Update with timing
-        t0 = time()
-        if alg == :anls
-            (l1_H == 0 &&
-             l2_H == 0 &&
-             l1_W == 0 &&
-             l2_W == 0) || error("Regularization not supported with ANLS")
-        end
-        
-        loss, meta = ALGORITHMS[alg].update!(data, W, H, meta;
-                                             l1_H=l1_H, l2_H=l2_H, l1_W=l1_W, l2_W=l2_W,
-                                             kwargs...)
-        dur = time() - t0
-        
-        # Record time and loss
-        push!(time_hist, time_hist[end] + dur)
-        push!(loss_hist, loss)
+    alg = AlternatingOptimizer(
+        MultUpdate(data, W_init, H_init),
+        max_itr,
+        max_time
+    )
 
-        # Check convergence
-        if check_convergence && converged(loss_hist, patience, tol)
-            break
-        end
-    end
-
-    return CNMF_results(data, W, H, time_hist, loss_hist,
-                        l1_H, l2_H, l1_W, l2_W, alg)
+    return fit(alg, data, L, K, W_init, H_init)
 end
 
 

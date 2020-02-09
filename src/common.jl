@@ -1,3 +1,19 @@
+"""
+Abstract type for an algorithm that fits a convolutional factorization.
+
+Must implement:
+    fit(
+        alg::AlternatingOptimizer,
+        data::Matrix,
+        L::Int64,
+        K::Int64,
+        W_init::Tensor,
+        H_init::Matrix;
+        kwargs...
+    )
+"""
+abstract type AbstractCFAlgorithm end
+
 function tensor_conv(W::Tensor, H::Matrix)
     L, N, K = size(W)
     T = size(H)[2]

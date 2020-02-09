@@ -20,13 +20,16 @@ const Tensor{T} = Array{T, 3}
 
 # Need to load model.jl dependencies
 # before including model.jl
-include("./algs/mult.jl")
-include("./algs/hals.jl")
-include("./algs/anls.jl")
-include("./algs/separable.jl")
-
-# Source files.
 include("./common.jl")
+
+include("./algs/alternating.jl")
+include("./algs/mult.jl")
+# include("./algs/hals.jl")
+# include("./algs/anls.jl")
+# include("./algs/separable.jl")
+
+# # Source files.
+
 include("./model.jl")
 include("./visualize.jl")
 include("./evaluate.jl")
