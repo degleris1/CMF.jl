@@ -1,5 +1,4 @@
-import JLD
-import HDF5
+
 
 ALGORITHMS = Dict(
     :mult => MULT,
@@ -33,7 +32,7 @@ num_units(r::CNMF_results) = size(r.W, 2)
 num_components(r::CNMF_results) = size(r.W, 3)
 
 """Returns number of iterations performed."""
-num_iter(r::CNMF_results) = length(loss_hist)
+num_iter(r::CNMF_results) = length(r.loss_hist)
 
 """Sorts units to reveal sequences."""
 function sortperm(r::CNMF_results)

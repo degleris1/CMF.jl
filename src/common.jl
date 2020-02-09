@@ -1,7 +1,3 @@
-using LinearAlgebra
-const EPSILON = eps()
-
-
 function tensor_conv(W, H)
     L, N, K = size(W)
     T = size(H)[2]

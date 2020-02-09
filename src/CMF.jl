@@ -3,12 +3,18 @@ module CMF
 export fit_cnmf
 
 # Dependencies.
-import PyPlot; const plt = PyPlot
 using LinearAlgebra
 using HDF5
+
+import PyPlot
 import Base: sortperm
 import Random
+import JLD
 
+const plt = PyPlot
+
+# Constants
+const EPSILON = eps()
 
 # Need to load model.jl dependencies
 # before including model.jl
