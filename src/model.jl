@@ -56,8 +56,10 @@ end
 
 
 function fit_cnmf(
-    data; L=10, K=5, alg=MultUpdate,
-    max_itr=100, max_time=Inf, kwargs...)
+    data; 
+    L::Integer=10, K::Integer=5, alg=MultUpdate,
+    max_itr=100, max_time=Inf, kwargs...
+)
 
     seed = get(kwargs, :seed, nothing)
     if (seed != nothing)
@@ -76,7 +78,7 @@ function fit_cnmf(
         max_time
     )
 
-    return fit(alg, data, L, K, W_init, H_init, kwargs...)
+    return fit(alg, data, L, K, W_init, H_init; kwargs...)
 end
 
 

@@ -39,5 +39,3 @@ function disp_heartbeat()
     x = generate_heartbeat()
     plt.plot(x, markersize=2, marker="o")
 end
-
-disp_heartbeat()

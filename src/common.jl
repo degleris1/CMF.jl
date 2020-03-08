@@ -23,6 +23,11 @@ function tensor_conv(W::Tensor, H::Matrix)
         pred[:, lag+1:T] += s_dot(W[lag+1, :, :], H, lag)
     end
     return pred
+
+    # L, N, K = size(W)
+    # T = size(H, 2)
+    
+    # return copy(reshape(permutedims(W, [2, 3, 1]), N, L*K)) * shift_and_stack(H, L)
 end
 
 """Computes normalized quadratic loss."""

@@ -27,13 +27,14 @@ function fit(
     patience = get(kwargs, :patience, 0)
     tol = get(kwargs, :tol, 1e-4)
 
-
     W = deepcopy(W_init)
     H = deepcopy(H_init)
 
     # Set up optimization tracking
     loss_hist = [compute_loss(data, W, H)]
     time_hist = [0.0]
+
+    datamean = sum(data) / length(data)
 
     itr = 1
     while (itr <= alg.max_itr) && (time_hist[end] <= alg.max_time) 
@@ -46,9 +47,12 @@ function fit(
             alg.update_rule, data, W, H; 
             kwargs...
         )
-        dur = time() - t0
-        
+
+        # Normalize entries of W to mean of data
+        #renormalize!(W, H, datamean)
+
         # Record time and loss
+        dur = time() - t0
         push!(time_hist, time_hist[end] + dur)
         push!(loss_hist, loss)
 
@@ -56,5 +60,21 @@ function fit(
         if check_convergence && converged(loss_hist, patience, tol)
             break
         end
+    end
+
+    return CNMF_results(data, W, H, time_hist, loss_hist)
+end
+
+
+function renormalize!(W::Tensor, H::Matrix, datamean)
+    L, N, K = size(W)
+    T = size(H, 2)
+
+    # TODO renormalize so max of a row is 1
+    for k in 1:K
+        meanWk = sum(W[:, :, k]) / (L*N)
+
+        W[:, :, k] ./= meanWk
+        H[k, :] .*= meanWk
     end
 end

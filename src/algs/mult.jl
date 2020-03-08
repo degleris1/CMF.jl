@@ -16,6 +16,7 @@ function update!(
     num_W, denom_W = _compute_mult_W(data, W, H)
     W .*= num_W ./ (denom_W .+ l1_W .+ 2 .* l2_W .* W .+ EPSILON)
 
+    # <-- is this correct?
     num_H, denom_H = _compute_mult_H(data, W, H)
     H .*= num_H ./ (denom_H .+ l1_H .+ 2 .* l2_H .* H .+ EPSILON)
 

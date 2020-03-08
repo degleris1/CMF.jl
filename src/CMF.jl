@@ -1,11 +1,14 @@
 module CMF
 
-export fit_cnmf
+export fit_cnmf, init_rand
+export MultUpdate, HALSUpdate, ANLSUpdate, ADMMUpdate
 
 # Dependencies.
 using LinearAlgebra
 using HDF5
 using NonNegLeastSquares
+using FFTW
+using Optim
 
 import PyPlot
 import Base: sortperm
@@ -30,6 +33,7 @@ include("./algs/alternating.jl")
 include("./algs/mult.jl")
 include("./algs/hals.jl")
 include("./algs/anls.jl")
+include("./algs/admm.jl")
 # include("./algs/separable.jl")
 
 
