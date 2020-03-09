@@ -26,18 +26,15 @@ function HALSUpdate(data, W, H)
 end
 
 
-function update!(
-    rule::HALSUpdate, data, W, H; 
-    l1_H=0, l2_H=0, l1_W=0, l2_W=0, kwargs...
-)
-
-    # W update
+function update_motifs!(rule::HALSUpdate, data, W, H; l1W=0, l2W=0, kwargs...)
     _setup_W_update!(rule, W, H)
-    _update_W!(W, rule.H_unfold, rule.H_norms, rule.resids, l1_W, l2_W)
+    _update_W!(W, rule.H_unfold, rule.H_norms, rule.resids, l1W, l2W)
+end
 
-    # H update
+
+function update_feature_maps!(rule::HALSUpdate, data, W, H; l1H=0, l2H=0, kwargs...)
     _setup_H_update!(rule, W, H)
-    _update_H_regular!(W, H, rule.resids, rule.Wk_list, rule.W_norms, l1_H, l2_H)
+    _update_H_regular!(W, H, rule.resids, rule.Wk_list, rule.W_norms, l1H, l2H)
     
     return norm(rule.resids) / rule.data_norm
 end

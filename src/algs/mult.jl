@@ -9,22 +9,21 @@ function MultUpdate(data, W, H)
     return MultUpdate(resids, data_norm)
 end
 
-function update!(
-    rule::MultUpdate, data, W, H;
-    l1_H=0, l2_H=0, l1_W=0, l2_W=0, kwargs...
-)
+
+function update_motifs!(rule::MultUpdate, data, W, H; l1W=0, l2W=0, kwargs...)
     num_W, denom_W = _compute_mult_W(data, W, H)
-    W .*= num_W ./ (denom_W .+ l1_W .+ 2 .* l2_W .* W .+ EPSILON)
+    @. W *= num_W / (denom_W + l1W + 2*l2W*W + EPSILON)
+end
 
-    # <-- is this correct?
+
+function update_feature_maps!(rule::MultUpdate, data, W, H; l1H=0, l2H=0, kwargs...)
     num_H, denom_H = _compute_mult_H(data, W, H)
-    H .*= num_H ./ (denom_H .+ l1_H .+ 2 .* l2_H .* H .+ EPSILON)
+    H .*= num_H ./ (denom_H .+ l1H .+ 2 .* l2H .* H .+ EPSILON)
 
-    # Cache resids
-    rule.resids = compute_resids(data, W, H)
-    
+    rule.resids = compute_resids(data, W, H) 
     return norm(rule.resids) / rule.data_norm
 end
+
 
 function _compute_mult_W(data, W, H)
     L, N, K = size(W)

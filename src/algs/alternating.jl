@@ -43,10 +43,8 @@ function fit(
         # Update with timing
         t0 = time()
         
-        loss = update!(
-            alg.update_rule, data, W, H; 
-            kwargs...
-        )
+        update_motifs!(alg.update_rule, data, W, H; kwargs...)
+        loss = update_feature_maps!(alg.update_rule, data, W, H; kwargs...)
 
         # Normalize entries of W to mean of data
         #renormalize!(W, H, datamean)

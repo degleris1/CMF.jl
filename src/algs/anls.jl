@@ -18,16 +18,15 @@ end
 const NNLS_TOL = 1e-5
 
 
-"""
-Main update rule
-"""
-function update!(rule::ANLSUpdate, data, W, H; variant=nothing, kwargs...)
-    # W update
+"""Main update rules"""
+function update_motifs!(rule::ANLSUpdate, data, W, H; kwargs...)
     _anls_update_W!(data, W, H)
-    rule.resids = compute_resids(data, W, H)
+end
 
-    # H update
-    if (variant == :block)
+function update_feature_maps!(rule::ANLSUpdate, data, W, H; variant=:basic, kwargs...)
+    rule.resids = compute_resids(data, W, H)
+    
+    if variant == :block
         _anls_block_update_H!(rule, W, H)
     else
         _anls_update_H!(rule, W, H)

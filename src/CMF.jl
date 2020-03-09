@@ -7,8 +7,6 @@ export MultUpdate, HALSUpdate, ANLSUpdate, ADMMUpdate
 using LinearAlgebra
 using HDF5
 using NonNegLeastSquares
-using FFTW
-using Optim
 
 import PyPlot
 import Base: sortperm

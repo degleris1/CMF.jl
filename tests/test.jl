@@ -9,18 +9,17 @@ include("../datasets/synthetic.jl")
 Random.seed!(1234)
 
 K, L = 3, 7
-data, W, H = synthetic_sequences(N=100, T=5000, K=K, L=L)
+data, W, H = synthetic_sequences(N=100, T=500, K=K, L=L)
 initW, initH = init_rand(data, L, K)
 
 
 alg_results = Dict()
 settings = [
-    [ADMMUpdate, Dict(), "ADMM-10-15"],
-    #[ADMMUpdate, Dict(:admm_H_maxiter => 10), "ADMM-10-10"],
-    #[ADMMUpdate, Dict(:admm_W_maxiter => 15), "ADMM-15-15"],
+    [ADMMUpdate, Dict(), "ADMM"],
+    [ADMMUpdate, Dict(:fast => true), "ADMM-fast"],
     #[HALSUpdate, Dict(), "HALS"],
-    #[CMF.MultUpdate, Dict(), "MULT"],
-    [CMF.ANLSUpdate, Dict(), "ANLS"]
+    #[MultUpdate, Dict(), "MULT"],
+    [ANLSUpdate, Dict(), "ANLS"]
 ]
 
 #plt.figure()
@@ -28,7 +27,7 @@ for (alg, kwargs, label) in settings
     println("Testing ", label)
     results = fit_cnmf(
         data; L=L, K=K,
-        alg=alg, max_itr=Inf, max_time=30,
+        alg=alg, max_itr=15, max_time=5,
         initW=initW, initH=initH,
         kwargs...
     )
