@@ -19,78 +19,112 @@ function ADMMUpdate(data::Matrix, W::Tensor, H::Matrix)
 end
 
 
-function update_motifs!(rule::ADMMUpdate, data, W, H; rhow=4, admm_W_maxiter=10,
+function update_motifs!(rule::ADMMUpdate, data, W, H; rhow=4, admm_W_maxiter=15,
                         fast=false, kwargs...)
+    # L, N, K = size(W)
+    # T = size(H, 2)
+
+    # # Precompute reused quantities
+    # Hstk = shift_and_stack(H, L)
+
+
+    # HstkT = copy(Hstk')
+    # HHTI = (Hstk * Hstk') + (2*I)(L*K)
+    # if fast  # TODO why is this slower? Maybe compute cholesky?
+    #     HHTI_inv = inv(HHTI)
+    # end
+
+    # # Initialize auxilliary and dual variables
+    # loss_hist = []
+    # gap_hist = zeros(admm_W_maxiter, 3)
+    # Wstk = zeros(L*K, N)
+    # Z1 = zeros(T, N)
+    # Z2 = zeros(L*K, N)
+    # Z3 = zeros(L*K, N)
+
+    # U1 = rule.U[1]
+    # U2 = rule.U[2]
+    # U3 = rule.U[3]
+
+    # estT = zeros(T, N)
+    # dataT = copy(data')
+    # V2 = zeros(size(U2))
+
+    # for iter = 1:admm_W_maxiter
+    #     # Update W itself
+    #     if fast
+    #         Wstk .= HHTI_inv * (Hstk * (Z1-U1) + (Z2-U2) + (Z3-U3))
+    #     else
+    #         Wstk .= HHTI \ (Hstk * (Z1-U1) + (Z2-U2) + (Z3-U3))
+    #     end
+
+    #     # Update wrt primary objective
+    #     estT .= HstkT * Wstk
+    #     Z1 .= (1 / (1 + 1/rhow)) * ((estT + U1) + (1/rhow) * dataT)
+
+    #     # Update wrt norm constraint
+    #     @. V2 = Wstk + U2
+    #     for n = 1:N
+    #         weight = norm(V2[:, n])
+    #         if weight >= 1
+    #             @. Z2[:, n] = V2[:, n] / weight
+    #         end
+    #     end
+
+    #     # Update wrt nonnegativity
+    #     @. Z3 = max(0, Wstk+U3)
+
+    #     # Update dual variable
+    #     @. U1 += estT - Z1
+    #     @. U2 += Wstk - Z2
+    #     @. U3 += Wstk - Z3
+    # end
+
+    # W .= fold_W(Z3', L, N, K)
+
+    # First do mult updates
     L, N, K = size(W)
     T = size(H, 2)
-
-    # Precompute reused quantities
-    Hstk = shift_and_stack(H, L)
-    HstkT = copy(Hstk')
-    HHTI = (Hstk * Hstk') + (2*I)(L*K)
-    if fast  # TODO why is this slower? Maybe compute cholesky?
-        HHTI_inv = inv(HHTI)
+    num = zeros(L, N, K)
+    denom = zeros(L, N, K)
+    est = zeros(N, T)
+    
+    # Precompute numerator
+    for lag = 0:(L-1)
+        num[lag+1, :, :] .= data[:, 1+lag:T] * shift_cols(H, lag)'
     end
 
-    # Initialize auxilliary and dual variables
-    loss_hist = []
-    gap_hist = zeros(admm_W_maxiter, 3)
-    Wstk = zeros(L*K, N)
-    Z1 = zeros(T, N)
-    Z2 = zeros(L*K, N)
-    Z3 = zeros(L*K, N)
+    # Repeatedly update W
+    for iter in 1:admm_W_maxiter
+        est .= tensor_conv(W, H)
 
-    U1 = rule.U[1]
-    U2 = rule.U[2]
-    U3 = rule.U[3]
-
-    estT = zeros(T, N)
-    dataT = copy(data')
-    V2 = zeros(size(U2))
-
-    for iter = 1:admm_W_maxiter
-        # Update W itself
-        if fast
-            Wstk .= HHTI_inv * (Hstk * (Z1-U1) + (Z2-U2) + (Z3-U3))
-        else
-            Wstk .= HHTI \ (Hstk * (Z1-U1) + (Z2-U2) + (Z3-U3))
+        for lag = 0:(L-1)
+            denom[lag+1, :, :] .= est[:, 1+lag:T] * shift_cols(H, lag)'
         end
 
-        # Update wrt primary objective
-        estT .= HstkT * Wstk
-        Z1 .= (1 / (1 + 1/rhow)) * ((estT + U1) + (1/rhow) * dataT)
-
-        # Update wrt norm constraint
-        @. V2 = Wstk + U2
-        for n = 1:N
-            weight = norm(V2[:, n])
-            if weight >= 1
-                @. Z2[:, n] = V2[:, n] / weight
-            end
-        end
-
-        # Update wrt nonnegativity
-        @. Z3 = max(0, Wstk+U3)
-
-        # Update dual variable
-        @. U1 += estT - Z1
-        @. U2 += Wstk - Z2
-        @. U3 += Wstk - Z3
+        @. W *= num / (denom + eps())
     end
 
-    W .= fold_W(Z3', L, N, K)
+    # Renormalize factors
+    for k = 1:K
+        weight = norm(W[:, :, k])
+        if weight >= 1
+            @. W[:, :, k] /= weight
+            @. H[k, :] *= weight
+        end
+    end
 end
 
 
 function update_feature_maps!(rule::ADMMUpdate, data, W, H; rhoh=2, admm_H_maxiter=10, 
-                              beta=0, kwargs...)
+                              l1H=0, kwargs...)
     # --
     num = tensor_transconv(W, data)
     denom = zeros(size(H))
 
     for iter = 1:admm_H_maxiter
         denom .= tensor_transconv(W, tensor_conv(W, H))
-        @. H *= num / (denom + beta + eps())
+        @. H *= num / (denom + l1H + eps())
     end
 
     return norm(compute_resids(data, W, H)) / rule.datanorm

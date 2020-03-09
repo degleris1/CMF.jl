@@ -20,6 +20,7 @@ function fit(
     K::Int64,
     W_init::Tensor{Float64},
     H_init::Matrix{Float64};
+    verbose=false,
     kwargs...
 )
     # Load keyword args
@@ -36,6 +37,8 @@ function fit(
 
     datamean = sum(data) / length(data)
 
+    verbose && print("Starting ")
+
     itr = 1
     while (itr <= alg.max_itr) && (time_hist[end] <= alg.max_time) 
         itr += 1
@@ -48,6 +51,7 @@ function fit(
 
         # Normalize entries of W to mean of data
         #renormalize!(W, H, datamean)
+        verbose && print(".")
 
         # Record time and loss
         dur = time() - t0
@@ -59,6 +63,7 @@ function fit(
             break
         end
     end
+    verbose && println(" fit!")
 
     return CNMF_results(data, W, H, time_hist, loss_hist)
 end

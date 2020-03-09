@@ -20,7 +20,7 @@ function tensor_conv(W::Tensor, H::Matrix)
 
     pred = zeros(N, T)
     for lag = 0:(L-1)
-        pred[:, lag+1:T] += s_dot(W[lag+1, :, :], H, lag)
+        pred[:, lag+1:T] .+= s_dot(W[lag+1, :, :], H, lag)
     end
     return pred
 
