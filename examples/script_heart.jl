@@ -7,7 +7,7 @@ using CMF
 # t32 10 30 --- 12:41
 
 function runscript(filename, K, L, beta)
-    folder = "/home/asd/data/heart/"
+    folder = "/farmshare/user_data/degleris/heart/"
     matdata = matread(string(folder, filename, ".mat"))
     signal = matdata["signal"]
 
@@ -17,10 +17,12 @@ function runscript(filename, K, L, beta)
     if N > 1
         signal = signal[2:end, :]
 
-        # Log transform
-        # Demean
-        # Drop negative
-        # Scale to be between 0 and 1
+        signal = log.(signal)  # log transform
+        signal[isnan.(signal)] .= 0  # remove nans
+        
+    	signal = signal .- sum(signal)/length(signal)
+    	signal = max.(0, signal)
+    	signal = signal / maximum(signal)
     end
     println("Data loaded.")
 
@@ -39,7 +41,7 @@ function runscript(filename, K, L, beta)
     # Save results
     println(round.(results.loss_hist; digits=4))
     matwrite(
-        string(folder, filename, "_results.mat"),
+        string(folder, filename, "_K", K, "_L", L, "_B", beta, "_results.mat"),
         Dict(
             "W" => results.W,
             "H" => results.H,
