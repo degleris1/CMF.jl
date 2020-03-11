@@ -16,6 +16,11 @@ function runscript(filename, K, L, beta)
     # If spectrogram, drop DC-ish rows
     if N > 1
         signal = signal[2:end, :]
+
+        # Log transform
+        # Demean
+        # Drop negative
+        # Scale to be between 0 and 1
     end
     println("Data loaded.")
 

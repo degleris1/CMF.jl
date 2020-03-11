@@ -19,6 +19,16 @@ function ADMMUpdate(data::Matrix, W::Tensor, H::Matrix)
 end
 
 
+function evaluate_feature_maps(data::Matrix, W::Tensor; l1H=0.1)
+    L, N, K = size(W)
+    W_init, H = init_rand(data, L, K)
+    rule = ADMMUpdate(data, W, H)
+    update_feature_maps!(rule, data, W, H, l1H=l1H, admm_H_maxiter=50)
+
+    return H
+end
+
+
 function update_motifs!(rule::ADMMUpdate, data, W, H; rhow=4, admm_W_maxiter=15,
                         fast=false, kwargs...)
     # L, N, K = size(W)

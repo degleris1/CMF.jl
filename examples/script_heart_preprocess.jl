@@ -1,4 +1,13 @@
 using MAT
+using Random
+
+# julia script_heart_preprocess.jl dat 1
+# julia script_heart_preprocess.jl spec_w_64 32
+# julia script_heart_preprocess.jl spec_w_128 128
+# julia script_heart_preprocess.jl spec_w_256 256
+
+
+Random.seed!(1234)
 
 function runscript(dt, dtname)
     folders = [
@@ -26,12 +35,11 @@ function runscript(dt, dtname)
     testusers = Dict()
     testsegs = Dict()
 
+    train_breaks = []
+    test_breaks = []
+    user_order = []
+
     for (group, num) in keys(data)
-        # Skip first individual per group
-        if num == 1
-            testusers[string(group, "_", num)] = data[(group, num)][dt]
-        end
-            
         # Load signal
         signal = data[(group, num)][dt]
         pad = zeros(size(signal, 1), padsize)
@@ -39,12 +47,30 @@ function runscript(dt, dtname)
         # Downsample
         signal = signal[:, 1:downsample_rate:end]
         pad = pad[:, 1:downsample_rate:end]
+
+        # Drop DC and normalize
+        if size(signal, 1) > 1
+            print(".")
+            signal = signal[2:end, :]
+            pad = pad[2:end, :]
+            signal = signal / maximum(signal)
+        end
+
+        # Skip first individual per group
+        if num == 1
+            testusers[string(group, "_", num)] = signal
+            continue
+        end
+
+        push!(train_breaks, size(train, 2)+1)
+        push!(user_order, string(group, "_", num))
         
         # Leave out a random 10% of the timebins
         # for test set (and store that information)
         T = size(signal, 2)
         tstart = rand(1:T)
         tend = min(T, tstart + floor(Int, T/10))
+        push!(test_breaks, string(1, "_", tstart, "_", tend, "_", T))
         
         testsegs[string(group, "_", num)] = signal[:, tstart:tend]
         signal = [signal[:, 1:tstart] signal[:, tend:end]]     
@@ -58,16 +84,24 @@ function runscript(dt, dtname)
 
     # Save files
     matwrite(
-        string("/home/asd/data/heart/train_", dtname, ".mat"),
+        string("/home/asd/data/heart/results/train_", dtname, ".mat"),
         Dict("signal" => train)
     )
     matwrite(
-        string("/home/asd/data/heart/testusers_", dtname, ".mat"),
+        string("/home/asd/data/heart/results/testusers_", dtname, ".mat"),
         Dict("testusers" => testusers)
     )
     matwrite(
-        string("/home/asd/data/heart/testsegs_", dtname, ".mat"),
+        string("/home/asd/data/heart/results/testsegs_", dtname, ".mat"),
         Dict("testsegs" => testsegs)
+    )
+    matwrite(
+        string("/home/asd/data/heart/results/breaks_", dtname, ".mat"),
+        Dict("train_breaks" => train_breaks, "test_breaks" => test_breaks)
+    )
+    matwrite(
+        string("/home/asd/data/heart/results/order.mat"),
+        Dict("trainorder" => user_order)
     )
 
     println("Done.")

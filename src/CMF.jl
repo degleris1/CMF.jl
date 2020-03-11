@@ -1,6 +1,6 @@
 module CMF
 
-export fit_cnmf, init_rand
+export fit_cnmf, init_rand, evaluate_feature_maps
 export MultUpdate, HALSUpdate, ANLSUpdate, ADMMUpdate
 
 # Dependencies.
