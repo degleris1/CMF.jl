@@ -1,26 +1,41 @@
 module CMF
 
-export fit_cnmf
+export fit_cnmf, init_rand
+export MultUpdate, HALSUpdate, ANLSUpdate, ADMMUpdate
 
 # Dependencies.
-import PyPlot; const plt = PyPlot
 using LinearAlgebra
 using HDF5
+using NonNegLeastSquares
+using FFTW
+
+import PyPlot
 import Base: sortperm
 import Random
+import HDF5
+import JLD
+import Profile
 
+const plt = PyPlot
 
-# Need to load model.jl dependencies
-# before including model.jl
-include("./algs/mult.jl")
-include("./algs/hals.jl")
-include("./algs/anls.jl")
-include("./algs/separable.jl")
+# Constants
+const EPSILON = eps()
+const Tensor{T} = Array{T, 3}
 
-# Source files.
+# Core files
 include("./common.jl")
 include("./model.jl")
 include("./visualize.jl")
 include("./evaluate.jl")
+
+# Algorithms
+include("./algs/alternating.jl")
+include("./algs/mult.jl")
+include("./algs/hals.jl")
+include("./algs/anls.jl")
+include("./algs/admm.jl")
+# include("./algs/separable.jl")
+
+
 
 end
