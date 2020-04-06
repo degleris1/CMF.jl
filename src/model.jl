@@ -78,7 +78,7 @@ function fit_cnmf(
         max_time
     )
 
-    return fit(alg, data, L, K, W_init, H_init; kwargs...)
+    Profile.@profile return fit(alg, data, L, K, W_init, H_init; kwargs...)
 end
 
 

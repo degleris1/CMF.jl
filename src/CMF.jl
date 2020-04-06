@@ -1,18 +1,20 @@
 module CMF
 
-export fit_cnmf, init_rand, evaluate_feature_maps
+export fit_cnmf, init_rand
 export MultUpdate, HALSUpdate, ANLSUpdate, ADMMUpdate
 
 # Dependencies.
 using LinearAlgebra
 using HDF5
 using NonNegLeastSquares
+using FFTW
 
 import PyPlot
 import Base: sortperm
 import Random
 import HDF5
 import JLD
+import Profile
 
 const plt = PyPlot
 

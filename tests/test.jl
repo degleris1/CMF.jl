@@ -16,18 +16,18 @@ initW, initH = init_rand(data, L, K)
 alg_results = Dict()
 settings = [
     [ADMMUpdate, Dict(), "ADMM"],
-    [ADMMUpdate, Dict(:fast => true), "ADMM-fast"],
-    #[HALSUpdate, Dict(), "HALS"],
+    #[ADMMUpdate, Dict(:fast => true), "ADMM-fast"],
+    [HALSUpdate, Dict(), "HALS"],
     #[MultUpdate, Dict(), "MULT"],
-    [ANLSUpdate, Dict(), "ANLS"]
+    #[ANLSUpdate, Dict(), "ANLS"]
 ]
 
-#plt.figure()
+plt.figure()
 for (alg, kwargs, label) in settings
     println("Testing ", label)
     results = fit_cnmf(
         data; L=L, K=K,
-        alg=alg, max_itr=15, max_time=5,
+        alg=alg, max_itr=Inf, max_time=3,
         initW=initW, initH=initH,
         kwargs...
     )
