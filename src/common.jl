@@ -15,20 +15,40 @@ Must implement:
 abstract type AbstractCFAlgorithm end
 
 function tensor_conv(W::Tensor, H::Matrix)
-    L, N, K = size(W)
-    T = size(H)[2]
-
-    pred = zeros(N, T)
-    for lag = 0:(L-1)
-        pred[:, lag+1:T] .+= s_dot(W[lag+1, :, :], H, lag)
-    end
-    return pred
-
-    # L, N, K = size(W)
-    # T = size(H, 2)
-    
-    # return copy(reshape(permutedims(W, [2, 3, 1]), N, L*K)) * shift_and_stack(H, L)
+    K, N, L = size(W)
+    est = zeros(N, size(H, 2))
+    return tensor_conv!(est, W, H)
 end
+
+
+function tensor_conv!(est, W::Tensor, H::Matrix)
+    K, N, L = size(W)
+    T = size(H, 2)
+
+    @. est = 0
+    for lag = 0:(L-1)
+        @views s_dot!(est[:, lag+1:T], W[:, :, lag+1]', H, lag, 1, 1)
+    end
+    
+    return est
+end
+
+function tesnor_circconv!(est, whc, H, hh, esth)
+    K, N, T = size(whc)
+
+    @. hh = H
+    fft!(hh, 2)
+
+    for t = 1:T
+        for n = 1:N
+            @views esth[n, t] = whc[:, n, t]'hh[:, t] 
+        end
+    end
+
+    ifft!(esth, 2)
+    @. est = real(esth)
+end
+
 
 """Computes normalized quadratic loss."""
 compute_loss(data::Matrix, W::Tensor, H::Matrix) =
@@ -40,38 +60,72 @@ compute_resids(data::Matrix, W::Tensor, H::Matrix) =
 
 
 function tensor_transconv(W::Tensor, X::Matrix)
-    L, N, K = size(W)
-    T = size(X)[2]
+    K, N, L = size(W)
+    T = size(X, 2)
 
     result = zeros(K, T)
+    return tensor_transconv!(result, W, X)
+end
+
+
+function tensor_transconv!(out, W::Tensor, X::Matrix)
+    K, N, L = size(W)
+    T = size(X, 2)
+
+    @. out = 0
     for lag = 0:(L-1)
-        result[:, 1:T-lag] += W[lag+1, :, :]' * shift_cols(X, -lag)
+        @views mul!(out[:, 1:T-lag], W[:, :, lag+1], shift_cols(X, -lag), 1, 1)
     end
 
-    return result
+    return out
 end
 
 
 function s_dot(Wl::Matrix, H::Matrix, lag)
+    T = size(H, 2)
+    N = size(Wl)
+    out = zeros(N, T)
+    return s_dot!(out, Wl, H, lag)
+end
+
+
+"""
+returns B = Wl H S_{l}
+"""
+function s_dot!(B, Wl, H, lag)
+    # K, T = size(H)
+    
+    # if lag < 0
+    #     @views mul!(B, Wl, H[:, 1+lag:T])  # TODO check
+    # else  # lag >= 0
+    #     @views mul!(B, Wl, H[:, 1:T-lag])
+    # end
+
+    return s_dot!(B, Wl, H, lag, 1, 0)
+end
+
+
+function s_dot!(B, Wl, H, lag, α, β)
     K, T = size(H)
-
-    if (lag < 0)
-        return Wl * H[:, 1-lag:T]
-
+    
+    if lag < 0
+        @views mul!(B, Wl, H[:, 1+lag:T], α, β)  # TODO check
     else  # lag >= 0
-        return Wl * H[:, 1:T-lag]
+        @views mul!(B, Wl, H[:, 1:T-lag], α, β)
     end
+
+    return B
 end
 
 
 function shift_cols(X::Matrix, lag)
-    T = size(X)[2]
+    T = size(X, 2)
     
     if (lag <= 0)
-        return X[:, 1-lag:T]
+        return view(X, :, 1-lag:T)
 
     else  # lag > 0
-        return X[:, 1:T-lag]
+        return view(X, :, 1:T-lag)
     end
 end
 
@@ -89,7 +143,7 @@ end
 
 
 function unpack_dims(W::Tensor, H::Matrix)
-    L, N, K = size(W)
+    K, N, L = size(W)
     T = size(H, 2)
 
     return N, T, K, L

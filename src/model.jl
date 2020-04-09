@@ -18,13 +18,13 @@ end
 
 
 """Returns width of each motif."""
-num_lags(r::CNMF_results) = size(r.W, 1)
+num_lags(r::CNMF_results) = size(r.W, 3)
 
 """Returns the number of measured time series."""
 num_units(r::CNMF_results) = size(r.W, 2)
 
 """Returns number of model motifs."""
-num_components(r::CNMF_results) = size(r.W, 3)
+num_components(r::CNMF_results) = size(r.W, 1)
 
 """Returns number of iterations performed."""
 num_iter(r::CNMF_results) = length(r.loss_hist)
@@ -32,8 +32,8 @@ num_iter(r::CNMF_results) = length(r.loss_hist)
 """Sorts units to reveal sequences."""
 function sortperm(r::CNMF_results)
     W_norm = zeros(size(r.W))
-    for k in 1:size(r.W, 3)
-        W_norm[:, :, k] = r.W[:, :, k] / norm(r.W[:, :, k])
+    for k in 1:size(r.W, 1)
+        W_norm[k, :, :] /= norm(r.W[k, :, :])
     end
     
     # For each unit, compute the largest weight across
@@ -78,7 +78,7 @@ function fit_cnmf(
         max_time
     )
 
-    return fit(alg, data, L, K, W_init, H_init; kwargs...)
+    Profile.@profile return fit(alg, data, L, K, W_init, H_init; kwargs...)
 end
 
 
@@ -110,13 +110,13 @@ Initialize randomly, scaling to minimize square error.
 function init_rand(data, L, K)
     N, T = size(data)
 
-    W = rand(L, N, K)
+    W = rand(K, N, L)
     H = rand(K, T)
 
     est = tensor_conv(W, H)
     alpha = (reshape(data, N*T)' * reshape(est, N*T)) / norm(est)^2
-    W *= sqrt(alpha)
-    H *= sqrt(alpha)
+    W *= sqrt(abs(alpha))
+    H *= sqrt(abs(alpha))
 
     return W, H
 end

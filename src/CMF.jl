@@ -1,7 +1,7 @@
 module CMF
 
 export fit_cnmf, init_rand
-export MultUpdate, HALSUpdate, ANLSUpdate, ADMMUpdate
+export MultUpdate, HALSUpdate, ANLSUpdate, ADMMUpdate, PGDUpdate
 
 # Dependencies.
 using LinearAlgebra
@@ -34,6 +34,7 @@ include("./algs/mult.jl")
 include("./algs/hals.jl")
 include("./algs/anls.jl")
 include("./algs/admm.jl")
+include("./algs/pgd.jl")
 # include("./algs/separable.jl")
 
 

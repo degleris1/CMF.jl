@@ -41,12 +41,13 @@ function synthetic_sequences(;
     # a Dirichlet distribution.
     mW = transpose(rand(ds.Dirichlet(fill(alpha, K)), N))
     W = repeat(reshape(mW, (1, size(mW)...)), outer=(L, 1, 1))
+    W = permutedims(W, (3, 2, 1))
 
     # Introduce Gaussian bump with random lag on each component.
     _l = range(-1, stop=1, length=L)
-    for (i, j) in Iterators.product(1:N, 1:K)
+    for (i, j) in Iterators.product(1:K, 1:N)
         cent = rand(ds.Uniform(-1, 1))
-        W[:, i, j] .*= ds.pdf.(ds.Gaussian(cent, sigma), _l)
+        W[i, j, :] .*= ds.pdf.(ds.Gaussian(cent, sigma), _l)
     end
 
     # Initialize temporal factor with heavy-tailed excursions.

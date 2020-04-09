@@ -8,24 +8,26 @@ include("../datasets/synthetic.jl")
 
 Random.seed!(1234)
 
-K, L = 3, 7
-data, W, H = synthetic_sequences(N=100, T=500, K=K, L=L)
+# 100, 1000, 10, 50 --- ADMM takes 27 seconds, 19 iterations
+# Goal: 100, 100_000, 50, 100
+
+N, T, K, L = 100, 250, 10, 20
+data, W, H = synthetic_sequences(N=N, T=T, K=K, L=L)
 initW, initH = init_rand(data, L, K)
 
 
 alg_results = Dict()
 settings = [
-    [ADMMUpdate, Dict(), "ADMM"],
-    #[ADMMUpdate, Dict(:fast => true), "ADMM-fast"],
     [HALSUpdate, Dict(), "HALS"],
-    #[MultUpdate, Dict(), "MULT"],
-    #[ANLSUpdate, Dict(), "ANLS"]
+    [MultUpdate, Dict(), "MULT"],
+    [PGDUpdate, Dict(), "PGD"],
+    [ADMMUpdate, Dict(), "ADMM"],
 ]
 
 plt.figure()
 for (alg, kwargs, label) in settings
     println("Testing ", label)
-    results = fit_cnmf(
+    @time results = fit_cnmf(
         data; L=L, K=K,
         alg=alg, max_itr=Inf, max_time=3,
         initW=initW, initH=initH,
@@ -37,7 +39,8 @@ for (alg, kwargs, label) in settings
 end
 plt.legend()
 plt.xlabel("Time (seconds)")
-plt.ylabel("Loss")
+plt.ylabel("Log Loss")
+plt.yscale("Log")
 
 # plt.savefig("cnmf_test.png")
 ;
