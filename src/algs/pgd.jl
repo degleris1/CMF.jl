@@ -34,6 +34,13 @@ function grad!(D::SquareLoss, grad, est, data)
 end
 
 
+""" D(b, hat b) = || b - hat b ||_2^2 """
+struct AbsoluteLoss <: AbstractLossFunction end
+function grad!(D::AbsoluteLoss, grad, est, data)
+    @. grad = sign(est - data)
+end
+
+
 """ R(x) = ||x||_2^2 """
 struct SquarePenalty <: AbstractPenalty
     weight
@@ -55,7 +62,7 @@ end
 """ x_i >= 0 for all i """
 struct NonnegConstraint <: AbstractConstraint end
 function projection!(c::NonnegConstraint, x)
-    @. x = max(0, x)
+    @. x = max(eps(), x)
 end
 
 
@@ -183,7 +190,7 @@ function pgd!(
     end
 
     # Step 2: compute step size, α = (a/i) / ||∇ J|| 
-    alpha = step / norm(gradx)
+    alpha = step / (norm(gradx) + eps())
 
     # Step 3: update W: descend and project
     @. x -= alpha * gradx

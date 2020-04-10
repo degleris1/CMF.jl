@@ -3,7 +3,7 @@ module Separable
 using NonNegLeastSquares
 using Combinatorics
 using LinearAlgebra
-import PyPlot; plt = PyPlot
+using PyPlot
 
 include("../common.jl")
 include("./hals.jl")

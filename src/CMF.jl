@@ -1,12 +1,11 @@
 module CMF
 
 export fit_cnmf, init_rand
-export MultUpdate, HALSUpdate, ANLSUpdate, ADMMUpdate, PGDUpdate
+export MultUpdate, HALSUpdate, ADMMUpdate, PGDUpdate
 
 # Dependencies.
 using LinearAlgebra
 using HDF5
-using NonNegLeastSquares
 using FFTW
 
 import PyPlot
@@ -14,7 +13,6 @@ import Base: sortperm
 import Random
 import HDF5
 import JLD
-import Profile
 
 const plt = PyPlot
 
@@ -32,7 +30,7 @@ include("./evaluate.jl")
 include("./algs/alternating.jl")
 include("./algs/mult.jl")
 include("./algs/hals.jl")
-include("./algs/anls.jl")
+# include("./algs/anls.jl")
 include("./algs/admm.jl")
 include("./algs/pgd.jl")
 # include("./algs/separable.jl")

@@ -3,6 +3,7 @@ doc_textwidth = 469.75
 doc_columnwidth = 252.0
 fontsize = 10
 ticksize = 8
+golden_ratio = (5^(.5) - 1) / 2
 
 plt.matplotlib.pyplot.style.use("seaborn-colorblind")
 plt.rc("text", usetex=true)

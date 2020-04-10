@@ -34,14 +34,14 @@ function plot_Ws(
     fig, ax = plt.subplots(1, num_components(r))
     for (k, a) in enumerate(ax)
         format_imshow_axis(a)
-        a.imshow(transpose(W[:, idx, k]), aspect="auto")
+        a.imshow(W[k, idx, :], aspect="auto")
     end
 
     if !(trueW === nothing)
         fig2, ax2 = plt.subplots(1, num_components(r))
         for (k, a) in enumerate(ax2)
             format_imshow_axis(a)
-            a.imshow(transpose(trueW[:, idx, k]), aspect="auto")
+            a.imshow(trueW[k, idx, :], aspect="auto")
         end
     end
 
