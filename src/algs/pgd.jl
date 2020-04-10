@@ -1,4 +1,66 @@
+
+abstract type AbstractLossFunction end
+
+""" Computes the gradient of `D`(`est`, `data`) and stores it in `grad`. """
+grad!(D::AbstractLossFunction, grad, est, data) = error("Must implement gradient.")
+
+"""
+Computes prox_{`D`(`est`, `data`), `alpha`}(`v`) and stores it in `out`.
+Here, `est` is the variable of the prox operator.
+"""
+prox!(D::AbstractLossFunction, out, est, data, v, alpha) = error(
+    "Must implement proximal operator."
+)
+
+
+""" All penalties must have the field `weight`. """
+abstract type AbstractPenalty end
+
+""" Computes the gradient of `P`(`x`) and **adds** it to `g`. """
+grad!(P::AbstractPenalty, g, x) = error("Must implement gradient.")
+prox!(P::AbstractPenalty, x) = error("Must implement proximal operator.")
+
+
+abstract type AbstractConstraint end
+projection!(c::AbstractConstraint, x) = error("Must implement the projection operator.")
+projection!(c::Nothing, x) = 0
+prox!(c::AbstractConstraint, x) = projection!(c, x)
+
+
+""" D(b, hat b) = || b - hat b ||_2^2 """
+struct SquareLoss <: AbstractLossFunction end
+function grad!(D::SquareLoss, grad, est, data)
+    @. grad = 2 * (est - data)
+end
+
+
+""" R(x) = ||x||_2^2 """
+struct SquarePenalty <: AbstractPenalty
+    weight
+end
+function grad!(P::SquarePenalty, g, x)
+    @. g += 2 * P.weight * x
+end
+
+
+""" R(x) = ||x||_1 """
+struct AbsolutePenalty <: AbstractPenalty
+    weight
+end
+function grad!(P::AbsolutePenalty, g, x)
+    @. g += P.weight * sign(x)
+end
+
+
+""" x_i >= 0 for all i """
+struct NonnegConstraint <: AbstractConstraint end
+function projection!(c::NonnegConstraint, x)
+    @. x = max(0, x)
+end
+
+
 mutable struct PGDUpdate <: AbstractCFUpdate
+    dims
     datanorm
     gradW
     gradH
@@ -17,13 +79,15 @@ end
 
 
 function PGDUpdate(data::Matrix, W::Tensor, H::Matrix)
-    L, N, K = size(W)
+    K, N, L = size(W)
     T = size(H, 2)
+    dims = (K, N, L, T)
 
     datanorm = norm(data)
     est = tensor_conv(W, H)
 
     return PGDUpdate(
+        dims,
         datanorm,
         zeros(size(W)),
         zeros(size(H)),
@@ -40,65 +104,83 @@ function PGDUpdate(data::Matrix, W::Tensor, H::Matrix)
     )
 end
 
-function update_motifs!(rule::PGDUpdate, data, W, H; kwargs...)
-    # Unpack dims
-    K, T = size(H)
-    K, N, L = size(W)
 
+function update_motifs!(
+    rule::PGDUpdate, data, W, H;
+    loss_func=SquareLoss(),
+    constrW=NonnegConstraint(),
+    penaltiesW=[SquarePenalty(1)],
+    kwargs...
+)
     # Define gradient function
-    grad!(w, gw) = compute_gradW!(gw, w, H, data, rule.est)
-
+    grad!(gradw, w, est) = compute_gradW!(gradw, H, est, rule.dims)
+    
     # Define projection function
-    function proj!(w)
-        @. w = max(0, w)
-    end
+    proj!(w) = projection!(constrW, w)
 
     # Take projected gradient step
-    pgd!(W, rule.gradW, grad!, proj!; step=rule.stepW)
-
-    # Update step size and loss
-    tensor_conv!(rule.est, W, H)
-    loss = norm(rule.est - data)
-
-    if loss < rule.cur_loss
-        rule.stepW *= rule.step_incr
-    else
-        rule.stepW *= rule.step_decr
-    end
-    rule.cur_loss = loss
-end
-
-function update_feature_maps!(rule::PGDUpdate, data, W, H; kwargs...)
-    
-    # Define gradient function
-    grad!(h, gh) = compute_gradH!(gh, W, h, data, rule.est)
-
-    # Define projection function
-    function proj!(h)
-        @. h = max(0, h)
-    end
-
-    # Take projected gradient step
-    pgd!(H, rule.gradH, grad!, proj!, step=rule.stepH)
-
-    # Update step size and loss
-    tensor_conv!(rule.est, W, H)
-    loss = norm(rule.est - data)
-
-    if loss < rule.cur_loss
-        rule.stepH *= rule.step_incr
-    else
-        rule.stepH *= rule.step_decr
-    end
-    rule.cur_loss = loss
-    
-    return loss / rule.datanorm
+    newstep = pgd!(
+        W, rule.gradW, grad!, proj!, rule.stepW,
+        rule, data, W, H, loss_func, penaltiesW,
+    )
+    rule.stepW = newstep
 end
 
 
-function pgd!(x, gradx, compute_gradx!, proj!; step=1)
+function update_feature_maps!(
+    rule::PGDUpdate, data, W, H; 
+    loss_func=SquareLoss(),
+    constrH=NonnegConstraint(),
+    penaltiesH=[],
+    kwargs...
+)
+    
+    # Define gradient function
+    grad!(gradh, h, est) = compute_gradH!(gradh, W, est)
+
+    # Define projection function
+    proj!(h) = projection!(constrH, h)
+
+    # Take projected gradient step
+    newstep = pgd!(
+        H, rule.gradH, grad!, proj!, rule.stepH,
+        rule, data, W, H, loss_func, penaltiesH,
+    )
+    rule.stepH = newstep
+
+    return rule.cur_loss / rule.datanorm
+end
+
+
+""" Compute the gradient with respect to W -- dW J(W) = C(H)^T db̂. """
+function compute_gradW!(gradW, H, est, dims)
+    # Unpack dimensions
+    K, N, L, T = dims
+
+    # Compute the transpose convolution, C(H)^T r
+    for lag = 0:(L-1)
+        @views mul!(gradW[:, :, lag+1], shift_cols(H, lag), est[:, 1+lag:T]')
+    end
+end
+
+
+""" Compute the gradient with respect to H. """
+function compute_gradH!(gradH, W, est)
+    # Compute the transpose convolution, ∇ = C(W)^T r
+    tensor_transconv!(gradH, W, est)
+end
+
+
+function pgd!(
+    x, gradx, compute_gradx!, proj!, step,
+    r::PGDUpdate, data, W, H, loss_func, penalties,
+)
     # Step 1: find gradient ∇_H J(W, H)
-    compute_gradx!(x, gradx)
+    grad!(loss_func, r.est, r.est, data)  # Compute db̂ D(b b̂)
+    compute_gradx!(gradx, x, r.est)  # Compute dx db̂
+    for pen in penalties
+        grad!(pen, gradx, x)
+    end
 
     # Step 2: compute step size, α = (a/i) / ||∇ J|| 
     alpha = step / norm(gradx)
@@ -106,80 +188,20 @@ function pgd!(x, gradx, compute_gradx!, proj!; step=1)
     # Step 3: update W: descend and project
     @. x -= alpha * gradx
     proj!(x)
-end
 
+    # Step 4: eval
+    # Update step size and loss
+    tensor_conv!(r.est, W, H)
+    loss = norm(r.est - data)
 
-"""
-Compute the gradient with respect to W
-
-The variables -- est, -- are workspace variables.
-"""
-function compute_gradW!(gradW, W, H, data, est)
-    # Unpack dimensions
-    K, N, L = size(W)
-    T = size(H, 2)
-
-    # Compute the gradient of W, which is
-    # dW J(W) = C(H)^T db̂ D(b, b̂) +  dW R(W)
-    
-    # for the square loss, this is
-    # dW J(W) = C(H)^T (2b̂ - 2b) + dW R(W)
-    #         = C(H)^T (2C(H)w - 2b) + dW R(W)
-
-    # note that it is most efficient to precompute
-    #  A = 2 C(H)^T C(H)
-    #  d = 2 C(H)^T b
-    # and then compute Aw - d at each gradient step
-
-    # Compute b̂
-    #tensor_conv!(est, W, H)
-
-    # Compute difference, r = HW - b
-    @. est -= data
-
-    # Compute the transpose convolution, 2 * C(H)^T r
-    for lag = 0:(L-1)
-        @views mul!(gradW[:, :, lag+1], shift_cols(H, lag), est[:, 1+lag:T]')
+    if loss < r.cur_loss
+        step *= r.step_incr
+    else
+        step *= r.step_decr
     end
-    @. gradW *= 2
-
-    # Add the gradient with respect to regularizers
-    # -- No regularizers --
-end
-
-
-"""
-Compute the gradient with respect to H
-
-The variables -- est, esth, wh, hh -- are workspace variables.
-"""
-function compute_gradH!(gradH, W, H, data, est)
-    # Compute the gradient of W, which is
-    # dW J(H) = W^T db̂ D(b, b̂) +  dW R(H)
+    r.cur_loss = loss
     
-    # for the square loss, this is
-    # dW J(H) = C(W)^T (2b̂ - 2b) + dW R(H)
-    #         = C(W)^T (2Wh - 2b) + dW R(H)
-
-    # note that it is most efficient to precompute
-    #  A = 2 C(W)^T W
-    #  d = 2 C(W)^T b
-    # and then compute Ah - d at each gradient step
-
-    # Compute b̂
-    #tensor_conv!(est, W, H)
-    #cconv!(est, nothing, H, esth, wh, hh; compute_wh=false)
-
-    # Compute difference, r = Wh - b
-    @. est -= data
-
-    # Compute the transpose convolution, ∇ = 2 * C(W)^T r
-    tensor_transconv!(gradH, W, est)
-    @. gradH *= 2
-
-
-    # Add the gradient with respect to regularizers
-    # -- No regularizers --
+    return step
 end
 
 

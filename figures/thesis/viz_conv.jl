@@ -36,4 +36,4 @@ plt.subplot(313)
 plt.plot(1:T, b)
 plt.title("\$b\$", pad=-20)
 
-plt.savefig("convolutional_example.eps")
+plt.savefig("./viz_conv.eps")

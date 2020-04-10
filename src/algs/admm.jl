@@ -22,18 +22,23 @@ end
 
 
 function update_motifs!(
-    rule::ADMMUpdate, data, W, H; rhow=10, admm_W_maxiter=30, 
+    rule::ADMMUpdate, data, W, H; rhow=10, admm_W_maxiter=30, admm_tol=1e-4,
     nonnegW=true, kwargs...
 )
+    mu = 10
+    tau = 2
+
     K, N, L = size(W)
     T = size(H, 2)
     loss_hist = []
 
     # Initialize auxilliary and dual variables
+    Wstk_last = zeros(L*K, N)
     Wstk = zeros(L*K, N)
     Z1 = zeros(T, N)
     Z2 = zeros(L*K, N)
     Z3 = zeros(L*K, N)
+    Z3_last = zeros(size(Z3))
 
     U1 = rule.U[1]
     U2 = rule.U[2]
@@ -56,6 +61,7 @@ function update_motifs!(
     for iter = 1:admm_W_maxiter
         # Update W itself
         mul!(rhs, Hstk, Z1-U1)
+        Wstk_last .= Wstk
         ldiv!(Wstk, HHTI_fact, rhs + Z2-U2 + Z3-U3)
     
         # Update wrt primary objective
@@ -72,6 +78,7 @@ function update_motifs!(
         end
 
         # Update wrt nonnegativity
+        Z3_last .= Z3
         if nonnegW
             @. Z3 = max(0, Wstk+U3)
         else
@@ -83,16 +90,25 @@ function update_motifs!(
         @. U2 += Wstk - Z2
         @. U3 += Wstk - Z3
         
-        # push!(
-        #     loss_hist, 
-        #     norm(dataT - HstkT * Z3) / rule.datanorm
-        # )
+        push!(
+            loss_hist, 
+            norm(dataT - HstkT * Z3) / rule.datanorm
+        )
+
+        # Check convergence
+        if (length(loss_hist) > 1) 
+            diff = loss_hist[end-1] - loss_hist[end]
+            if diff < 0
+                # Revert back
+                @. Z3 = Z3_last
+                loss_hist = loss_hist[1:end-1]
+            end
+            diff < admm_tol && break
+        end
     end
 
-    # plt.plot(loss_hist, ls="--")
-
-    # @show norm(Z3 - Wstk) / norm(Z3)
-    # @show norm(estT - Z1) / norm(Z1)
+    #plt.plot(loss_hist, ls="dashdot")
+    #@show loss_hist[end]
 
     # Fold W
     for l = 1:L
@@ -115,7 +131,6 @@ function update_feature_maps!(
     # subject to        Z1 = \sum_k W_k * h_k
     #                   Z2 = H
     #                   Z3 = H
-
     # Step 1) Update primal variable
     #               nH = arg min \| \sum_k Wk * hk - Z1 + Q1 \|_2^2 
     #                               + \| H - Z2 + Q2 \|_2^2 
@@ -167,9 +182,7 @@ function update_feature_maps!(
         )
 
         # Update Z1 (diagonal quadratic)
-        # TODO this should be circular
         tesnor_circconv!(est, whc, H, hh, esth)
-        #tensor_conv!(est, W, H)  # <-- slow line, 10 % of time here
         @. Z1 = (1 / (1 + 1/rhoh)) * ((est + Q1) + (1/rhoh) * data)
 
         # Update Z2 (shrinkage)
@@ -192,6 +205,7 @@ function update_feature_maps!(
             if diff < 0
                 # Revert back
                 @. Z3 = Z3_last
+                loss_hist = loss_hist[1:end-1]
             end
             diff < admm_tol && break
         end
@@ -202,12 +216,11 @@ function update_feature_maps!(
         @. Q3 += H - Z3        
     end
 
-    # @show norm(Z3 - H)^2 / (K*T)
-    # @show minimum(H)
-    # @show sum(H .< 0)
     H .= Z3
 
-    #plt.plot(loss_hist, ls="--")
+    #plt.plot(loss_hist, ls="dotted")
+    #@show loss_hist[end]
+    #println("-")
 
     return norm(compute_resids(data, W, H)) / rule.datanorm
 end
@@ -255,7 +268,7 @@ function fastsolveH!(
     end
 
     ifft!(hh, 2)
-    H .= real.(hh)
+    @. H = real(hh)
 end
 
 

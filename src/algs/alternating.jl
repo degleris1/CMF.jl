@@ -27,7 +27,7 @@ function fit(
     check_convergence = get(kwargs, :check_convergence, true)
     patience = get(kwargs, :patience, 3)
     @assert patience >= 1
-    tol = get(kwargs, :tol, 1e-5)
+    tol = get(kwargs, :tol, 1e-4)
 
     W = deepcopy(W_init)
     H = deepcopy(H_init)
