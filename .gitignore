@@ -10,3 +10,7 @@
 *.png
 *.pdf
 *.eps
+
+# Other
+.DS_Store
+.vscode/
