@@ -69,6 +69,9 @@ function fit_cnmf(
     # Initialize
     W_init, H_init = init_rand(data, L, K)
 
+    W_init = get(kwargs, :W_init, W_init)
+    H_init = get(kwargs, :H_init, H_init)
+
     # TODO have the user input the type directly
     # TODO reincorporate separable stuff
 

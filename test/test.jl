@@ -1,8 +1,9 @@
-using Revise
-using CMF
+using PyPlot
 using Random
 
-import PyPlot; plt = PyPlot
+using Revise
+using CMF
+
 
 include("../datasets/synthetic.jl")
 
@@ -14,6 +15,8 @@ Random.seed!(1234)
 N, T, K, L = 100, 100, 10, 5
 data, W, H = synthetic_sequences(N=N, T=T, K=K, L=L)
 initW, initH = init_rand(data, L, K)
+mask = zeros(size(data))
+mask[1:20, :] .= 1
 
 
 alg_results = Dict()
@@ -39,6 +42,7 @@ for (alg, kwargs, label) in settings
         data; L=L, K=K,
         alg=alg, max_itr=Inf, max_time=5, tol=1e-4,
         initW=initW, initH=initH,
+        loss_func=CMF.MaskedLoss(CMF.SquareLoss(), mask),
         kwargs...
     )
 

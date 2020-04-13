@@ -32,6 +32,9 @@ struct SquareLoss <: AbstractLossFunction end
 function grad!(D::SquareLoss, grad, est, data)
     @. grad = 2 * (est - data)
 end
+function eval(D::SquareLoss, b, est)
+    return norm(b - est)^2
+end
 
 
 """ D(b, hat b) = || b - hat b ||_2^2 """
@@ -39,6 +42,20 @@ struct AbsoluteLoss <: AbstractLossFunction end
 function grad!(D::AbsoluteLoss, grad, est, data)
     @. grad = sign(est - data)
 end
+
+
+struct MaskedLoss <: AbstractLossFunction
+    loss::AbstractLossFunction
+    mask
+end
+function grad!(D::MaskedLoss, grad, est, data)
+    grad!(D.loss, grad, est, data)
+    @. grad *= D.mask
+end
+function eval(D::MaskedLoss, b, est)
+    return eval(D.loss, D.mask .* b, D.mask .* est)
+end
+
 
 
 """ R(x) = ||x||_2^2 """
@@ -155,7 +172,7 @@ function update_feature_maps!(
     )
     rule.stepH = newstep
 
-    return rule.cur_loss / rule.datanorm
+    return sqrt(rule.cur_loss / rule.datanorm^2)
 end
 
 
@@ -199,7 +216,7 @@ function pgd!(
     # Step 4: eval
     # Update step size and loss
     tensor_conv!(r.est, W, H)
-    loss = norm(r.est - data)
+    loss = eval(loss_func, data, r.est)
 
     if loss < r.cur_loss
         step *= r.step_incr
