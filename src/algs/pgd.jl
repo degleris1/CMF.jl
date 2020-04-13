@@ -12,6 +12,9 @@ prox!(D::AbstractLossFunction, out, est, data, v, alpha) = error(
     "Must implement proximal operator."
 )
 
+""" Evaluate loss function. """
+eval(D::AbstractLossFunction, b, est) = error("Must implement eval function.")
+
 
 """ All penalties must have the field `weight`. """
 abstract type AbstractPenalty end
@@ -99,6 +102,12 @@ mutable struct PGDUpdate <: AbstractCFUpdate
     cur_loss
     step_incr
     step_decr
+
+    # Parameter for accelerated Prox grad
+    H_extrapolated
+    W_extrapolated
+    W_iter
+    H_iter
 end
 
 
@@ -124,7 +133,13 @@ function PGDUpdate(data::Matrix, W::Tensor, H::Matrix)
         5,
         datanorm,
         1.05,
-        0.70
+        0.70,
+
+        # Params for accelerated PGD:
+        zeros(size(H)),  # H_extrapolated
+        zeros(size(W)),  # W_extrapolated
+        1,  # H_iter
+        1,  # W_iter
     )
 end
 
@@ -134,6 +149,7 @@ function update_motifs!(
     loss_func=SquareLoss(),
     constrW=NonnegConstraint(),
     penaltiesW=[SquarePenalty(1)],
+    extrapolate=false,
     kwargs...
 )
     # Define gradient function
@@ -142,11 +158,17 @@ function update_motifs!(
     # Define projection function
     proj!(w) = projection!(constrW, w)
 
+    # Define estimate
+    estimate!(est, w) = tensor_conv!(est, w, H)
+
     # Take projected gradient step
+    # itr = get(kwargs, :itr, nothing)
     newstep = pgd!(
-        W, rule.gradW, grad!, proj!, rule.stepW,
-        rule, data, W, H, loss_func, penaltiesW,
+        W, rule.gradW, grad!, proj!, estimate!, rule.stepW,
+        rule, data, loss_func, penaltiesW,
+        rule.W_iter, extrapolate, rule.W_extrapolated
     )
+    rule.W_iter += 1
     rule.stepW = newstep
 end
 
@@ -156,6 +178,7 @@ function update_feature_maps!(
     loss_func=SquareLoss(),
     constrH=NonnegConstraint(),
     penaltiesH=[],
+    extrapolate=false,
     kwargs...
 )
     
@@ -165,11 +188,16 @@ function update_feature_maps!(
     # Define projection function
     proj!(h) = projection!(constrH, h)
 
+    # Define estimate
+    estimate!(est, h) = tensor_conv!(est, W, h)
+
     # Take projected gradient step
     newstep = pgd!(
-        H, rule.gradH, grad!, proj!, rule.stepH,
-        rule, data, W, H, loss_func, penaltiesH,
+        H, rule.gradH, grad!, proj!, estimate!, rule.stepH,
+        rule, data, loss_func, penaltiesH,
+        rule.H_iter, extrapolate, rule.H_extrapolated
     )
+    rule.H_iter += 1
     rule.stepH = newstep
 
     return sqrt(rule.cur_loss / rule.datanorm^2)
@@ -196,28 +224,50 @@ end
 
 
 function pgd!(
-    x, gradx, compute_gradx!, proj!, step,
-    r::PGDUpdate, data, W, H, loss_func, penalties,
+    x, gradx, compute_gradx!, proj!, estimate!, step,
+    r::PGDUpdate, data, loss_func, penalties,
+    itr, extrapolate, x_extrapolated
 )
-    # Step 1: find gradient ∇_H J(W, H)
-    grad!(loss_func, r.est, r.est, data)  # Compute db̂ D(b b̂)
-    compute_gradx!(gradx, x, r.est)  # Compute dx db̂
-    for pen in penalties
-        grad!(pen, gradx, x)
+    if extrapolate
+        # Step 1: x_k = prox(y_{k-1} - ∇ J (y_{k-1}))
+        estimate!(r.est, x_extrapolated)
+        grad!(loss_func, r.est, r.est, data)  # Compute db̂ D(b b̂)
+        compute_gradx!(gradx, x_extrapolated, r.est)  # Compute dx db̂
+        for pen in penalties
+            grad!(pen, gradx, x_extrapolated)
+        end
+
+        # Step 2: compute step size, α = (a/i) / ||∇ J|| 
+        alpha = step / (norm(gradx) + eps())
+
+        # Step 3: update W: descend and project
+        x_new = x_extrapolated .- alpha * gradx
+        proj!(x_new)
+
+        # Extrapolation
+        @. x_extrapolated = x_new + (itr-1)/(itr+2) * (x_new - x)
+        @. x = x_new
+    else
+        # Step 1: find gradient ∇_H J(W, H)
+        grad!(loss_func, r.est, r.est, data)  # Compute db̂ D(b b̂)
+        compute_gradx!(gradx, x, r.est)  # Compute dx db̂
+        for pen in penalties
+            grad!(pen, gradx, x)
+        end
+
+        # Step 2: compute step size, α = (a/i) / ||∇ J|| 
+        alpha = step / (norm(gradx) + eps())
+
+        # Step 3: update W: descend and project
+        @. x -= alpha * gradx
+        proj!(x)
     end
 
-    # Step 2: compute step size, α = (a/i) / ||∇ J|| 
-    alpha = step / (norm(gradx) + eps())
-
-    # Step 3: update W: descend and project
-    @. x -= alpha * gradx
-    proj!(x)
-
     # Step 4: eval
-    # Update step size and loss
-    tensor_conv!(r.est, W, H)
+    estimate!(r.est, x)
     loss = eval(loss_func, data, r.est)
 
+    # Update step size and loss
     if loss < r.cur_loss
         step *= r.step_incr
     else

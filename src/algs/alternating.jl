@@ -42,11 +42,10 @@ function fit(
 
     itr = 1
     while (itr <= alg.max_itr) && (time_hist[end] <= alg.max_time) 
-        itr += 1
 
         # Update with timing
         t0 = time()
-        
+
         update_motifs!(alg.update_rule, data, W, H; kwargs...)
         loss = update_feature_maps!(alg.update_rule, data, W, H; kwargs...)
 
@@ -60,6 +59,7 @@ function fit(
         if check_convergence && converged(loss_hist, patience, tol)
             break
         end
+        itr += 1
     end
     verbose && println(" fit!")
 
