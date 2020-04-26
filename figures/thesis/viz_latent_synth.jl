@@ -11,8 +11,8 @@ plt.close()
 
 # Load results
 folder = "/home/asd/data/thesis/"
-ntrials = 5
-num_noise = 10
+ntrials = 20
+num_noise = 20
 noiselevels = exp.( range(log(0.1), log(10), length=num_noise) )
 
 results = Dict()

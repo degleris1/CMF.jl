@@ -43,7 +43,7 @@ for trial = 1:ntrials
         println()
 
         matwrite(
-            string(folder, "latsyn/", noise, "_", trial, ".mat"),
+            string(folder, "latsyn/", n, "_", trial, ".mat"),
             Dict(
                 "data" => data,
                 "trueW" => W,
