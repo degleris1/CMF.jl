@@ -42,8 +42,22 @@ struct AbsoluteLoss <: AbstractLossFunction end
 function grad!(D::AbsoluteLoss, grad, est, data)
     @. grad = sign(est - data)
 end
+function eval(D::AbsoluteLoss, b, est)
+    return norm(b - est, 1)
+end
 
 
+""" D(b, b̂) = ∑ⱼ min( (b - b̂)ⱼ^2 ||_2^2 """
+# struct AbsoluteLoss <: AbstractLossFunction end
+# function grad!(D::AbsoluteLoss, grad, est, data)
+#     @. grad = sign(est - data)
+# end
+# function eval(D::AbsoluteLoss, b, est)
+#     return norm(b - est, 1)
+# end
+
+
+# TODO add sparse mask
 struct MaskedLoss <: AbstractLossFunction
     loss::AbstractLossFunction
     mask
@@ -55,7 +69,6 @@ end
 function eval(D::MaskedLoss, b, est)
     return eval(D.loss, D.mask .* b, D.mask .* est)
 end
-
 
 
 """ R(x) = ||x||_2^2 """
@@ -82,6 +95,19 @@ function projection!(c::NonnegConstraint, x)
     @. x = max(eps(), x)
 end
 
+
+""" || x || <= 0 """
+struct UnitNormConstraint <: AbstractConstraint end
+function projection!(c::UnitNormConstraint, x)
+    M = size(x, 1)
+    for m = 1:M
+        xm = selectdim(x, 1, m)
+        mag = norm(xm)
+        if mag > 1
+            @. xm /= mag
+        end
+    end
+end
 
 mutable struct PGDUpdate <: AbstractCFUpdate
     dims
@@ -251,7 +277,7 @@ function cconv!(est, Wpad, H, esth, wh, hh; compute_hh=true, compute_wh=true)
     @. est = real(esth)
 end
 
-function _cconv!(esth, wh, hh)
+function _cconv!(esth, wh, hh)NormBallConstraint
     K, N, T = size(wh)
     for t = 1:T
         for n = 1:N
