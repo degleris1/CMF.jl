@@ -2,8 +2,6 @@ using Random
 using MAT
 using Distributions: Bernoulli, Uniform
 using CMF
-using CMF: tensor_conv
-using CMF: SquareLoss, SquarePenalty, AbsolutePenalty, NonnegConstraint
 
 # Load command line args
 model_K = parse(Int64, ARGS[1])
@@ -41,7 +39,7 @@ end
 h = rand(Bernoulli(sparsity / K / L), K, T) .* rand(Uniform(1, 2), K, T)
 
 # Generate observations
-b = tensor_conv(w, h)
+b = CMF.tensor_conv(w, h)
 
 
 # Split into train and test sets 
@@ -56,12 +54,12 @@ r = fit_cnmf(
     alg=PGDUpdate,
     max_itr=200,
     max_time=Inf,
-    loss_func=SquareLoss(),
+    loss_func=CMF.SquareLoss(),
     check_convergence=false,
-    penaltiesW=[SquarePenalty(1e-3)],
-    penaltiesH=[AbsolutePenalty(1e-3)],
-    constrW=NonnegConstraint(),
-    constrH=NonnegConstraint(),
+    penaltiesW=[CMF.SquarePenalty(1e-3)],
+    penaltiesH=[CMF.AbsolutePenalty(1e-3)],
+    constrW=CMF.NonnegConstraint(),
+    constrH=CMF.NonnegConstraint(),
     seed=74,
 )
 @show r.loss_hist[end]
@@ -75,12 +73,12 @@ r_test = fit_cnmf(
     alg=PGDUpdate,
     max_itr=200,
     max_time=Inf,
-    loss_func=SquareLoss(),
+    loss_func=CMF.SquareLoss(),
     check_convergence=false,
-    penaltiesW=[SquarePenalty(1e-3)],
-    penaltiesH=[AbsolutePenalty(1e-3)],
-    constrW=NonnegConstraint(),
-    constrH=NonnegConstraint(),
+    penaltiesW=[CMF.SquarePenalty(1e-3)],
+    penaltiesH=[CMF.AbsolutePenalty(1e-3)],
+    constrW=CMF.NonnegConstraint(),
+    constrH=CMF.NonnegConstraint(),
     W_init=r.W,
     seed=747,
     eval_mode=true,
