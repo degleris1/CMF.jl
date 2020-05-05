@@ -1,7 +1,8 @@
 using Random
 using MAT
 using Distributions: Bernoulli, Uniform
-using CMF: tensor_conv, fit_cnmf, PGDUpdate
+using CMF
+using CMF: tensor_conv
 using CMF: SquareLoss, SquarePenalty, AbsolutePenalty, NonnegConstraint
 
 # Load command line args
