@@ -12,6 +12,8 @@ function evaluate_test(
 )
     # Fit a new H on the test set
     testH = zeros(num_components(r), size(test, 2))
+    
+    
     meta = HALS.HALSMeta(test, r.W, testH)
     HALS._setup_H_update!(r.W, r.H, meta)
     

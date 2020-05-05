@@ -61,6 +61,7 @@ function fit(
 
         # Check convergence
         if check_convergence && converged(loss_hist, patience, tol)
+            println("Converged early.")
             break
         end
     end
