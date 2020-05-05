@@ -26,6 +26,7 @@ function fit(
     # Load keyword args
     check_convergence = get(kwargs, :check_convergence, true)
     patience = get(kwargs, :patience, 3)
+    eval_mode = get(kwargs, :eval_mode, false)
     @assert patience >= 1
     tol = get(kwargs, :tol, 1e-4)
 
@@ -47,7 +48,9 @@ function fit(
         # Update with timing
         t0 = time()
         
-        update_motifs!(alg.update_rule, data, W, H; kwargs...)
+        if !eval_mode  # Skip motif update in evaluation mode
+            update_motifs!(alg.update_rule, data, W, H; kwargs...)
+        end
         loss = update_feature_maps!(alg.update_rule, data, W, H; kwargs...)
 
         # Record time and loss
