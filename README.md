@@ -2,6 +2,8 @@
 
 Convolutive Matrix Factorizations (CMF) in Julia.
 
+**NOTE: this package is currently under development. You can expect a stable package in June 2020, and major rehauls soon thereafter. Feel free to raise an issue if you have questions in the meantime.**
+
 
 ### Simple Example
 
