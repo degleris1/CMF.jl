@@ -67,5 +67,5 @@ function fit(
     end
     verbose && println(" fit!")
 
-    return CNMF_results(data, W, H, time_hist, loss_hist)
+    return W, H, time_hist, loss_hist
 end

@@ -3,11 +3,6 @@ atoms.jl contains the AbstractLossFunction, AbstractPenalty, and AbstractConstra
 interfaces, as well as any loss functions, penalties, and constraints that
 implement them.
 """
-# TODO  add sparse mask
-# TODO  add general p-norm
-# TODO  generalize nonnegativity to upper and lower bounds
-# TODO  pyplot or plots
-# ?     make eval a struct call
 
 
 notyetimplemented() = error("Not yet implemented.")

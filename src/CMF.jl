@@ -13,6 +13,8 @@ import Base: sortperm
 import Random
 import HDF5
 import JLD
+import MLJModelInterface
+import MLJModelInterface: @mlj_model
 
 # Constants
 const Tensor{T} = Array{T, 3}
@@ -36,3 +38,25 @@ include("./algs/pgd.jl")
 
 
 end
+
+
+# TODO  add sparse mask
+# TODO  add general p-norm
+# TODO  generalize nonnegativity to upper and lower bounds
+# TODO  pyplot or plots
+# TODO  consider travis ci
+# TODO  make a test suite
+# ?     make eval a struct call
+
+# TODO  think about masks
+# TODO  update the PGDUpdate struct
+# TODO  allow setting initial W, H
+# TODO  reincorporate separable stuff
+# TODO  transform
+# TODO  move init rand and converged
+# TODO  add wrapper that avoids MLJ business
+# TODO  common constructors
+
+# struct PGD end
+#PGD() = AlternatingOptimizer(PGDUpdate())
+#alg = AlternatingOptimizer(PGDUpdate())
