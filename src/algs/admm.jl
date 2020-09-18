@@ -182,7 +182,7 @@ function update_feature_maps!(
         )
 
         # Update Z1 (diagonal quadratic)
-        tesnor_circconv!(est, whc, H, hh, esth)
+        tensor_circconv!(est, whc, H, hh, esth)
         @. Z1 = (1 / (1 + 1/rhoh)) * ((est + Q1) + (1/rhoh) * data)
 
         # Update Z2 (shrinkage)

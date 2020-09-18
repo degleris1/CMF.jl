@@ -14,6 +14,7 @@ Must implement:
 """
 abstract type AbstractCFAlgorithm end
 
+
 function tensor_conv(W::Tensor, H::Matrix)
     K, N, L = size(W)
     est = zeros(N, size(H, 2))
@@ -33,7 +34,8 @@ function tensor_conv!(est, W::Tensor, H::Matrix)
     return est
 end
 
-function tesnor_circconv!(est, whc, H, hh, esth)
+
+function tensor_circconv!(est, whc, H, hh, esth)
     K, N, T = size(whc)
 
     @. hh = H
@@ -51,8 +53,9 @@ end
 
 
 """Computes normalized quadratic loss."""
-compute_loss(data::Matrix, W::Tensor, H::Matrix) =
-    norm(compute_resids(data, W, H)) / norm(data)
+compute_loss(data::Matrix, W::Tensor, H::Matrix) = error("compute_loss has been deprecated.")
+#    norm(compute_resids(data, W, H)) / norm(data)
+
 
 """Computes matrix of residuals."""
 compute_resids(data::Matrix, W::Tensor, H::Matrix) = 
@@ -93,14 +96,6 @@ end
 returns B = Wl H S_{l}
 """
 function s_dot!(B, Wl, H, lag)
-    # K, T = size(H)
-    
-    # if lag < 0
-    #     @views mul!(B, Wl, H[:, 1+lag:T])  # TODO check
-    # else  # lag >= 0
-    #     @views mul!(B, Wl, H[:, 1:T-lag])
-    # end
-
     return s_dot!(B, Wl, H, lag, 1, 0)
 end
 

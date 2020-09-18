@@ -14,13 +14,11 @@ import Random
 import HDF5
 import JLD
 
-const plt = PyPlot
-
 # Constants
-const EPSILON = eps()
 const Tensor{T} = Array{T, 3}
 
 # Core files
+include("atoms.jl")
 include("./common.jl")
 include("./model.jl")
 include("./visualize.jl")
