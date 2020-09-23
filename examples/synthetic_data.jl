@@ -2,15 +2,17 @@ using Revise
 import PyPlot; const plt = PyPlot
 import CMF; const cmf = CMF
 
+include("../datasets/synthetic.jl")
+
 trueK = 3
 trueL = 20
-data, trueW, trueH = cmf.synthetic_sequences(N=300, K=3, L=trueL, alpha=.1, p_h=0.05)
+data, trueW, trueH = synthetic_sequences(N=300, K=3, L=trueL, alpha=.1, p_h=0.05)
 
 println("Fitting models...")
 hals_result = cmf.fit_cnmf(
-    data, alg=:hals, K=trueK, L=trueL, max_time=10, max_itr=Inf)
+    data, alg=cmf.PGDUpdate, K=trueK, L=trueL, max_time=10, max_itr=Inf)
 mult_result = cmf.fit_cnmf(
-    data, alg=:mult, K=trueK, L=trueL, max_time=10, max_itr=Inf)
+    data, alg=cmf.PGDUpdate, K=trueK, L=trueL, max_time=10, max_itr=Inf)
 
 fig, ax = plt.subplots(1, 1)
 ax.plot(hals_result.time_hist, hals_result.loss_hist, label="HALS")
@@ -34,3 +36,4 @@ plt.tight_layout()
 # Second figure, showing
 fig, ax = cmf.plot_reconstruction(hals_result, 1:500)
 fig, ax = cmf.plot_Ws(hals_result, trueW=trueW)
+plt.show()
