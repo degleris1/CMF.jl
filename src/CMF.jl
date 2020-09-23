@@ -1,7 +1,8 @@
 module CMF
 
-export fit_cnmf, init_rand
-export MultUpdate, HALSUpdate, ADMMUpdate, PGDUpdate
+export tensor_conv
+export ConvolutionalFactorization
+export AlternatingOptimizer, PGDUpdate
 
 # Dependencies.
 using LinearAlgebra
@@ -23,8 +24,8 @@ const Tensor{T} = Array{T, 3}
 include("atoms.jl")
 include("./common.jl")
 include("./model.jl")
-include("./visualize.jl")
-include("./evaluate.jl")
+#include("./visualize.jl")
+#include("./evaluate.jl")
 
 # Algorithms
 include("./algs/alternating.jl")
@@ -39,21 +40,22 @@ include("./algs/pgd.jl")
 
 end
 
+# TODO  make a test suite
+# TODO  think about masks
+# TODO  update the PGDUpdate struct
+# TODO  transform
+# TODO  move init rand and converged
 
+
+# LATER...
 # TODO  add sparse mask
 # TODO  add general p-norm
 # TODO  generalize nonnegativity to upper and lower bounds
 # TODO  pyplot or plots
 # TODO  consider travis ci
-# TODO  make a test suite
 # ?     make eval a struct call
-
-# TODO  think about masks
-# TODO  update the PGDUpdate struct
 # TODO  allow setting initial W, H
 # TODO  reincorporate separable stuff
-# TODO  transform
-# TODO  move init rand and converged
 # TODO  add wrapper that avoids MLJ business
 # TODO  common constructors
 

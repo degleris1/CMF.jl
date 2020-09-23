@@ -4,7 +4,7 @@
     loss::AbstractLossFunction = SquareLoss()
     penalizers::Vector{AbstractPenalty} = AbstractPenalty[]
     constraints::Vector{AbstractConstraint} = AbstractConstraint[]
-    algorithm::AbstractCFAlgorithm = PGDUpdate()
+    algorithm::Symbol = :pgd::(_ in (:pgd,))
     max_iters::Int = 100::(_ > 0)
     max_time::Float64 = Inf::(_ > 0)
 end
@@ -22,13 +22,20 @@ function MLJModelInterface.fit(
     W_init, H_init = init_rand(X, model.L, model.K)
 
     # Set up alternating optimizer (to be generalized)
+    update_rule = Dict(
+        :pgd => PGDUpdate
+    )[model.algorithm]
+
     alg = AlternatingOptimizer(
-        model.algorithm(X, W_init, H_init),
+        update_rule(X, W_init, H_init),
         model.max_iters,
         model.max_time
     )
 
-    W, H, time_hist, loss_hist = fit(alg, X, model.L, model.K, W_init, H_init)
+    W, H, time_hist, loss_hist = _fit(
+        alg, X, model.L, model.K, W_init, H_init,
+        verbose=(verbosity >= 2),
+    )
 
     fitresult = (W=W, H=H)
     cache = nothing
@@ -51,10 +58,30 @@ end
 function MLJModelInterface.transform(
     model::ConvolutionalFactorization,
     fitresult,
-    Xnew
+    Xnew;
+    seed=123
 )
+    (seed !== nothing) && Random.seed!(seed)
+
+    # Initialize
+    W_init, H_init = init_rand(X, model.L, model.K)
+    W_init = fitresult.W
+
+    # Set up alternating optimizer (to be generalized)
+    update_rule = Dict(
+        :pgd => PGDUpdate
+    )[model.algorithm]
+
+    alg = AlternatingOptimizer(
+        update_rule(X, W_init, H_init),
+        model.max_iters,
+        model.max_time
+    )
+
     # Given a new X and a W, it finds the best H to fit the data
-    notyetimplemented()
+    W, H, time_hist, loss_hist = fit(
+        alg, Xnew, model.L, model.K, W_init, H_init, evalmode=true
+    )
 end
 
 

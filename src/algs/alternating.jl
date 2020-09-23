@@ -7,13 +7,15 @@ Must implement:
 """
 abstract type AbstractCFUpdate end
 
+
 struct AlternatingOptimizer <: AbstractCFAlgorithm
     update_rule::AbstractCFUpdate
     max_itr
     max_time
 end
 
-function fit(
+
+function _fit(
     alg::AlternatingOptimizer,
     data::Matrix{Float64},
     L::Int64,
@@ -21,14 +23,13 @@ function fit(
     W_init::Tensor{Float64},
     H_init::Matrix{Float64};
     verbose=false,
+    check_convergence=true,
+    patience=3,
+    eval_mode=false,
+    tol=1e-4,
     kwargs...
 )
-    # Load keyword args
-    check_convergence = get(kwargs, :check_convergence, true)
-    patience = get(kwargs, :patience, 3)
-    eval_mode = get(kwargs, :eval_mode, false)
     @assert patience >= 1
-    tol = get(kwargs, :tol, 1e-4)
 
     W = deepcopy(W_init)
     H = deepcopy(H_init)
