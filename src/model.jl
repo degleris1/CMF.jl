@@ -1,12 +1,47 @@
 @mlj_model mutable struct ConvolutionalFactorization
     L::Int = 1::(_ > 0)
     K::Int = 1::(_ > 0)
-    loss::AbstractLossFunction = SquareLoss()
-    penalizers::Vector{AbstractPenalty} = AbstractPenalty[]
-    constraints::Vector{AbstractConstraint} = AbstractConstraint[]
+    loss::AbstractLoss = SquareLoss()
+    W_penalizers::Vector{AbstractPenalty} = AbstractPenalty[]
+    H_penalizers::Vector{AbstractPenalty} = AbstractPenalty[]
+    W_constraints::Vector{AbstractConstraint} = AbstractConstraint[]
+    H_constraints::Vector{AbstractConstraint} = AbstractConstraint[]
     algorithm::Symbol = :pgd::(_ in (:pgd,))
     max_iters::Int = 100::(_ > 0)
     max_time::Float64 = Inf::(_ > 0)
+end
+
+function eval(
+    model::ConvolutionalFactorization,
+    W,
+    H,
+    b,
+    est
+)
+    return eval(
+        model.loss,
+        model.W_penalizers,
+        model.H_penalizers,
+        W,
+        H,
+        b,
+        est)
+end
+
+function eval(
+    model::ConvolutionalFactorization,
+    W,
+    H,
+    b,
+)
+    return eval(
+        model.loss,
+        model.W_penalizers,
+        model.H_penalizers,
+        W,
+        H,
+        b,
+        tensor_conv(W,H))
 end
 
 
@@ -33,7 +68,7 @@ function MLJModelInterface.fit(
     )
 
     W, H, time_hist, loss_hist = _fit(
-        alg, X, model.L, model.K, W_init, H_init,
+        model, alg, X, W_init, H_init,
         verbose=(verbosity >= 2),
     )
 

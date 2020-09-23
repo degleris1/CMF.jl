@@ -16,10 +16,9 @@ end
 
 
 function _fit(
+    model::ConvolutionalFactorization,
     alg::AlternatingOptimizer,
     data::Matrix{Float64},
-    L::Int64,
-    K::Int64,
     W_init::Tensor{Float64},
     H_init::Matrix{Float64};
     verbose=false,
@@ -35,7 +34,8 @@ function _fit(
     H = deepcopy(H_init)
 
     # Set up optimization tracking
-    loss_hist = [compute_loss(data, W, H)]
+    # loss_hist = [compute_loss(data, W, H)]
+    loss_hist = [eval(model, W, H, data)]
     time_hist = [0.0]
 
     datamean = sum(data) / length(data)
@@ -50,9 +50,9 @@ function _fit(
         t0 = time()
         
         if !eval_mode  # Skip motif update in evaluation mode
-            update_motifs!(alg.update_rule, data, W, H; kwargs...)
+            update_motifs!(alg.update_rule, model, data, W, H; kwargs...)
         end
-        loss = update_feature_maps!(alg.update_rule, data, W, H; kwargs...)
+        loss = update_feature_maps!(alg.update_rule, model, data, W, H; kwargs...)
 
         # Record time and loss
         dur = time() - t0

@@ -47,32 +47,46 @@ end
 
 
 function update_motifs!(
-    rule::PGDUpdate, data, W, H;
-    loss_func=SquareLoss(),
-    constrW=NonnegConstraint(),
-    penaltiesW=[SquarePenalty(1)],
+    rule::PGDUpdate,
+    model::ConvolutionalFactorization,
+    data,
+    W,
+    H;
     kwargs...
 )
+# x,
+# gradx,
+# compute_gradx!::Function,
+# proj!::Function,
+# update!::Function,
+# eval_loss::Function,
+# step,
+# r::PGDUpdate,
     # Define gradient function
+    # TODO: Fix to incorporate constraints
     grad!(gradw, w, est) = compute_gradW!(gradw, H, est, rule.dims)
     
     # Define projection function
-    proj!(w) = projection!(constrW, w)
+    proj!(w) = projection!(model.W_constraints, w)
 
     # Take projected gradient step
+    update = # some function
+    eval_loss = # some fun
     newstep = pgd!(
-        W, rule.gradW, grad!, proj!, rule.stepW,
-        rule, data, W, H, loss_func, penaltiesW,
+        W, rule.gradW,
+        grad!, proj!, update!, eval_loss,
+        rule.stepW, rule
     )
     rule.stepW = newstep
 end
 
 
 function update_feature_maps!(
-    rule::PGDUpdate, data, W, H; 
-    loss_func=SquareLoss(),
-    constrH=NonnegConstraint(),
-    penaltiesH=[],
+    rule::PGDUpdate,
+    model,
+    data,
+    W,
+    H;
     kwargs...
 )
     
@@ -80,16 +94,16 @@ function update_feature_maps!(
     grad!(gradh, h, est) = compute_gradH!(gradh, W, est)
 
     # Define projection function
-    proj!(h) = projection!(constrH, h)
+    proj!(h) = projection!(model.H_constraints, h)
 
     # Take projected gradient step
     newstep = pgd!(
         H, rule.gradH, grad!, proj!, rule.stepH,
-        rule, data, W, H, loss_func, penaltiesH,
+        rule, data, W, H, model.loss, model.H_penalizers,
     )
     rule.stepH = newstep
 
-    return sqrt(rule.cur_loss / rule.datanorm^2)
+    return rule.cur_loss
 end
 
 
@@ -113,15 +127,19 @@ end
 
 
 function pgd!(
-    x, gradx, compute_gradx!, proj!, step,
-    r::PGDUpdate, data, W, H, loss_func, penalties,
+    x,
+    gradx,
+    compute_gradx!::Function,
+    proj!::Function,
+    update!::Function,
+    eval_loss::Function,
+    step,
+    r::PGDUpdate,
 )
+
     # Step 1: find gradient ∇_H J(W, H)
-    grad!(loss_func, r.est, r.est, data)  # Compute db̂ D(b b̂)
+    # grad!(loss_func, r.est, r.est, data)  # Compute db̂ D(b b̂)
     compute_gradx!(gradx, x, r.est)  # Compute dx db̂
-    for pen in penalties
-        grad!(pen, gradx, x)
-    end
 
     # Step 2: compute step size, α = (a/i) / ||∇ J|| 
     alpha = step / (norm(gradx) + eps())
@@ -132,8 +150,8 @@ function pgd!(
 
     # Step 4: eval
     # Update step size and loss
-    tensor_conv!(r.est, W, H)
-    loss = eval(loss_func, data, r.est)
+    update!(r.est, x)
+    loss = eval_loss(r.est)
 
     if loss < r.cur_loss
         step *= r.step_incr
