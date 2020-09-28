@@ -63,20 +63,32 @@ function update_motifs!(
 # step,
 # r::PGDUpdate,
     # Define gradient function
-    # TODO: Fix to incorporate constraints
-    grad!(gradw, w, est) = compute_gradW!(gradw, H, est, rule.dims)
-    
-    # Define projection function
-    proj!(w) = projection!(model.W_constraints, w)
+    loss(W) = eval(model, W, H, data)
+    ReverseDiff.gradient!(rule.gradW, loss, W)
 
-    # Take projected gradient step
-    update = # some function
-    eval_loss = # some fun
-    newstep = pgd!(
+    # Define projection function
+    proj!(w) = projection!(model.W_constraint, w)
+
+    # Create functions used by inner pgd update
+    update!(est, W) = tensor_conv!(est, W, H)
+    eval_loss(est) = eval(model, W, H, data, est)
+
+    # Instead of passing a function to compute the gradient,
+    # here we're passing the gradient itself.
+     newstep = _pgd!(
         W, rule.gradW,
-        grad!, proj!, update!, eval_loss,
+        proj!, update!, eval_loss,
         rule.stepW, rule
     )
+
+    # x,
+    # gradx,
+    # proj!::Function,
+    # update!::Function,
+    # eval_loss::Function,
+    # step,
+    # r::PGDUpdate,
+
     rule.stepW = newstep
 end
 
@@ -91,15 +103,21 @@ function update_feature_maps!(
 )
     
     # Define gradient function
-    grad!(gradh, h, est) = compute_gradH!(gradh, W, est)
+    loss(H) = eval(model, W, H, data)
+    ReverseDiff.gradient!(rule.gradH, loss, H)
 
     # Define projection function
-    proj!(h) = projection!(model.H_constraints, h)
+    proj!(h) = projection!(model.H_constraint, h)
+
+    # Create functions used by inner pgd update
+    update!(est, H) = tensor_conv!(est, W, H)
+    eval_loss(est) = eval(model, W, H, data, est)
 
     # Take projected gradient step
-    newstep = pgd!(
-        H, rule.gradH, grad!, proj!, rule.stepH,
-        rule, data, W, H, model.loss, model.H_penalizers,
+    newstep = _pgd!(
+        H, rule.gradH,
+        proj!, update!, eval_loss,
+        rule.stepH, rule
     )
     rule.stepH = newstep
 
@@ -107,39 +125,15 @@ function update_feature_maps!(
 end
 
 
-""" Compute the gradient with respect to W -- dW J(W) = C(H)^T db̂. """
-function compute_gradW!(gradW, H, est, dims)
-    # Unpack dimensions
-    K, N, L, T = dims
-
-    # Compute the transpose convolution, C(H)^T r
-    for lag = 0:(L-1)
-        @views mul!(gradW[:, :, lag+1], shift_cols(H, lag), est[:, 1+lag:T]')
-    end
-end
-
-
-""" Compute the gradient with respect to H. """
-function compute_gradH!(gradH, W, est)
-    # Compute the transpose convolution, ∇ = C(W)^T r
-    tensor_transconv!(gradH, W, est)
-end
-
-
-function pgd!(
+function _pgd!(
     x,
     gradx,
-    compute_gradx!::Function,
     proj!::Function,
     update!::Function,
     eval_loss::Function,
     step,
     r::PGDUpdate,
 )
-
-    # Step 1: find gradient ∇_H J(W, H)
-    # grad!(loss_func, r.est, r.est, data)  # Compute db̂ D(b b̂)
-    compute_gradx!(gradx, x, r.est)  # Compute dx db̂
 
     # Step 2: compute step size, α = (a/i) / ||∇ J|| 
     alpha = step / (norm(gradx) + eps())
@@ -162,10 +156,6 @@ function pgd!(
     
     return step
 end
-
-
-
-
 
 function cconv!(est, Wpad, H, esth, wh, hh; compute_hh=true, compute_wh=true)
     K, N, T = size(wh)
@@ -194,3 +184,29 @@ function _cconv!(esth, wh, hh)NormBallConstraint
         end
     end
 end
+
+
+##### DEPRECATED #####
+
+# """ Compute the gradient with respect to W -- dW J(W) = C(H)^T db̂. """
+# # function compute_gradW!(gradW, H, est, dims)
+# #     # Unpack dimensions
+# #     K, N, L, T = dims
+
+# #     # Compute the transpose convolution, C(H)^T r
+# #     for lag = 0:(L-1)
+# #         @views mul!(gradW[:, :, lag+1], shift_cols(H, lag), est[:, 1+lag:T]')
+# #     end
+# # end
+
+# function compute_gradW!(gradW, model, H, est)
+
+# end
+
+
+# """ Compute the gradient with respect to H. """
+# function compute_gradH!(gradH, W, est)
+#     # Compute the transpose convolution, ∇ = C(W)^T r
+#     tensor_transconv!(gradH, W, est)
+# end
+

@@ -16,6 +16,7 @@ import HDF5
 import JLD
 import MLJModelInterface
 import MLJModelInterface: @mlj_model
+import ReverseDiff
 
 # Constants
 const Tensor{T} = Array{T, 3}

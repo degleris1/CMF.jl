@@ -4,8 +4,8 @@
     loss::AbstractLoss = SquareLoss()
     W_penalizers::Vector{AbstractPenalty} = AbstractPenalty[]
     H_penalizers::Vector{AbstractPenalty} = AbstractPenalty[]
-    W_constraints::Vector{AbstractConstraint} = AbstractConstraint[]
-    H_constraints::Vector{AbstractConstraint} = AbstractConstraint[]
+    W_constraint::AbstractConstraint = NoConstraint()
+    H_constraint::AbstractConstraint = NoConstraint()
     algorithm::Symbol = :pgd::(_ in (:pgd,))
     max_iters::Int = 100::(_ > 0)
     max_time::Float64 = Inf::(_ > 0)

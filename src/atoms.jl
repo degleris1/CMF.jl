@@ -145,6 +145,10 @@ end
 ########
 ####    CONSTRAINTS
 ########
+struct NoConstraint <: AbstractConstraint end
+function projection!(c::NoConstraint, x)
+    return
+end
 
 
 """ x_i >= 0 for all i """

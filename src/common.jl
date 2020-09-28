@@ -15,14 +15,14 @@ Must implement:
 abstract type AbstractCFAlgorithm end
 
 
-function tensor_conv(W::Tensor, H::Matrix)
+function tensor_conv(W::AbstractArray, H::AbstractArray)
     K, N, L = size(W)
     est = zeros(N, size(H, 2))
     return tensor_conv!(est, W, H)
 end
 
 
-function tensor_conv!(est, W::Tensor, H::Matrix)
+function tensor_conv!(est, W::AbstractArray, H::AbstractArray)
     K, N, L = size(W)
     T = size(H, 2)
 
