@@ -147,7 +147,7 @@ end
 ########
 struct NoConstraint <: AbstractConstraint end
 function projection!(c::NoConstraint, x)
-    return
+    return x
 end
 
 
