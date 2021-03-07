@@ -35,7 +35,7 @@ function _fit(
 
     # Set up optimization tracking
     # loss_hist = [compute_loss(data, W, H)]
-    loss_hist = [eval(model, W, H, data)]
+    loss_hist = [evaluate_loss(model, W, H, data)]
     time_hist = [0.0]
 
     datamean = sum(data) / length(data)

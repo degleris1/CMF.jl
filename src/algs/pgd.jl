@@ -1,6 +1,6 @@
 
 
-mutable struct PGDUpdate <: AbstractCFUpdate
+Base.@kwdef mutable struct PGDUpdate <: AbstractCFUpdate
     dims
     datanorm
     gradW
@@ -22,26 +22,24 @@ end
 function PGDUpdate(data::Matrix, W::Tensor, H::Matrix)
     K, N, L = size(W)
     T = size(H, 2)
-    dims = (K, N, L, T)
-
     datanorm = norm(data)
-    est = tensor_conv(W, H)
-
     return PGDUpdate(
-        dims,
-        datanorm,
-        zeros(size(W)),
-        zeros(size(H)),
-        est,
-        zeros(ComplexF64, size(data)),
-        zeros(ComplexF64, K, N, T),
-        zeros(ComplexF64, size(H)),
+        dims = (K, N, L, T),
+        datanorm = datanorm,
+        gradW = zeros(size(W)),
+        gradH = zeros(size(H)),
+        est = tensor_conv(W, H),
+        
+        # Fourier stuff. TODO: Fix these names.
+        esth = zeros(ComplexF64, size(data)),
+        wh = zeros(ComplexF64, K, N, T),
+        hh = zeros(ComplexF64, size(H)),
 
-        5,
-        5,
-        datanorm,
-        1.05,
-        0.70
+        stepW = 5,
+        stepH = 5,
+        cur_loss = datanorm,
+        step_incr = 1.05,
+        step_decr = 0.70
     )
 end
 
@@ -54,16 +52,9 @@ function update_motifs!(
     H;
     kwargs...
 )
-# x,
-# gradx,
-# compute_gradx!::Function,
-# proj!::Function,
-# update!::Function,
-# eval_loss::Function,
-# step,
-# r::PGDUpdate,
+
     # Define gradient function
-    loss(W) = eval(model, W, H, data)
+    loss(W) = evaluate_loss(model, W, H, data)
     ReverseDiff.gradient!(rule.gradW, loss, W)
 
     # Define projection function
@@ -71,7 +62,7 @@ function update_motifs!(
 
     # Create functions used by inner pgd update
     update!(est, W) = tensor_conv!(est, W, H)
-    eval_loss(est) = eval(model, W, H, data, est)
+    eval_loss(est) = evaluate_loss(model, W, H, data, est)
 
     # Instead of passing a function to compute the gradient,
     # here we're passing the gradient itself.
@@ -103,7 +94,7 @@ function update_feature_maps!(
 )
     
     # Define gradient function
-    loss(H) = eval(model, W, H, data)
+    loss(H) = evaluate_loss(model, W, H, data)
     ReverseDiff.gradient!(rule.gradH, loss, H)
 
     # Define projection function
@@ -111,7 +102,7 @@ function update_feature_maps!(
 
     # Create functions used by inner pgd update
     update!(est, H) = tensor_conv!(est, W, H)
-    eval_loss(est) = eval(model, W, H, data, est)
+    eval_loss(est) = evaluate_loss(model, W, H, data, est)
 
     # Take projected gradient step
     newstep = _pgd!(
@@ -176,7 +167,7 @@ function cconv!(est, Wpad, H, esth, wh, hh; compute_hh=true, compute_wh=true)
     @. est = real(esth)
 end
 
-function _cconv!(esth, wh, hh)NormBallConstraint
+function _cconv!(esth, wh, hh)
     K, N, T = size(wh)
     for t = 1:T
         for n = 1:N

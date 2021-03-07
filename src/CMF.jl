@@ -9,13 +9,11 @@ using LinearAlgebra
 using HDF5
 using FFTW
 
-import PyPlot
 import Base: sortperm
 import Random
 import HDF5
 import JLD
 import MLJModelInterface
-import MLJModelInterface: @mlj_model
 import ReverseDiff
 
 # Constants

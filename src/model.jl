@@ -1,4 +1,4 @@
-@mlj_model mutable struct ConvolutionalFactorization
+MLJModelInterface.@mlj_model mutable struct ConvolutionalFactorization
     L::Int = 1::(_ > 0)
     K::Int = 1::(_ > 0)
     loss::AbstractLoss = SquareLoss()
@@ -11,14 +11,17 @@
     max_time::Float64 = Inf::(_ > 0)
 end
 
-function eval(
+""" Evaluate loss when est is given.
+    Returns: loss
+"""
+function evaluate_loss(
     model::ConvolutionalFactorization,
     W,
     H,
     b,
     est
 )
-    return eval(
+    return evaluate_loss(
         model.loss,
         model.W_penalizers,
         model.H_penalizers,
@@ -28,13 +31,18 @@ function eval(
         est)
 end
 
-function eval(
+
+""" Evaluate loss when est is not given. First computes
+    tensor_conv.
+    Returns: loss
+"""
+function evaluate_loss(
     model::ConvolutionalFactorization,
     W,
     H,
     b,
 )
-    return eval(
+    return evaluate_loss(
         model.loss,
         model.W_penalizers,
         model.H_penalizers,

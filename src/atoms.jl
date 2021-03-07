@@ -33,7 +33,7 @@ weight(p::AbstractPenalty) = p.weight
 """ Computes the gradient of `P`(`x`) and **adds** it to `g`. """
 grad!(P::AbstractPenalty, g, x) = notyetimplemented()
 prox!(P::AbstractPenalty, x) = notyetimplemented()
-eval(P::AbstractPenalty, x) = notyetimplemented()
+evaluate_loss(P::AbstractPenalty, x) = notyetimplemented()
 
 
 """General constraints."""
@@ -46,7 +46,7 @@ prox!(c::AbstractConstraint, x) = projection!(c, x)
 """General function for evaluating a loss function.
    Takes a single loss function and a list of AbstractPenalty, 
    calls eval on each, and adds them. """
-function eval(
+function evaluate_loss(
     D::AbstractLoss,
     W_penalties::Vector{AbstractPenalty},
     H_penalties::Vector{AbstractPenalty},
@@ -55,12 +55,13 @@ function eval(
     b,
     est
 )
-    loss = eval(D, b, est)
-    loss += sum(Float64[eval(p, W) for p in W_penalties])
-    loss += sum(Float64[eval(p, H) for p in H_penalties])
+    loss = evaluate_loss(D, b, est)
+    loss += sum(Float64[evaluate_loss(p, W) for p in W_penalties])
+    loss += sum(Float64[evaluate_loss(p, H) for p in H_penalties])
+    return loss
 end
 
-function eval(
+function evaluate_loss(
     D::AbstractLoss,
     W_penalties::Vector{AbstractPenalty},
     H_penalties::Vector{AbstractPenalty},
@@ -69,7 +70,7 @@ function eval(
     b
 )
     est = tensor_conv(W, H)
-    return eval(D, W_penalties, H_penalties, W, H, b, est)
+    return evaluate_loss(D, W_penalties, H_penalties, W, H, b, est)
 end
 
 
@@ -83,7 +84,7 @@ struct SquareLoss <: AbstractLoss end
 function grad!(D::SquareLoss, grad, est, data)
     @. grad = 2 * (est - data)
 end
-function eval(D::SquareLoss, b, est)
+function evaluate_loss(D::SquareLoss, b, est)
     return norm(b - est)^2
 end
 
@@ -93,12 +94,12 @@ struct AbsoluteLoss <: AbstractLoss end
 function grad!(D::AbsoluteLoss, grad, est, data)
     @. grad = sign(est - data)
 end
-function eval(D::AbsoluteLoss, b, est)
+function evaluate_loss(D::AbsoluteLoss, b, est)
     return norm(b - est, 1)
 end
 
 
-"""Docstring"""
+"""Masked loss """
 struct MaskedLoss <: AbstractLoss
     loss::AbstractLoss
     mask
@@ -107,8 +108,8 @@ function grad!(D::MaskedLoss, grad, est, data)
     grad!(D.loss, grad, est, data)
     @. grad *= D.mask
 end
-function eval(D::MaskedLoss, b, est)
-    return eval(D.loss, D.mask .* b, D.mask .* est)
+function evaluate_loss(D::MaskedLoss, b, est)
+    return evaluate_loss(D.loss, D.mask .* b, D.mask .* est)
 end
 
 
@@ -124,7 +125,7 @@ end
 function grad!(P::SquarePenalty, g, x)
     @. g += 2 * P.weight * x
 end
-function eval(P::SquarePenalty, x)
+function evaluate_loss(P::SquarePenalty, x)
     return P.weight * norm(x)^2
 end
     
@@ -137,7 +138,7 @@ end
 function grad!(P::AbsolutePenalty, g, x)
     @. g += P.weight * sign(x)
 end
-function eval(P::AbsolutePenalty, x)
+function evaluate_loss(P::AbsolutePenalty, x)
     return P.weight * norm(x, 1)
 end
 
